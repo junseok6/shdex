@@ -455,7 +455,7 @@ ul.plain li b{font-weight:600}
    ============================================================ */
 
 /* ---------- 상수 ---------- */
-const APP_VERSION = '1.4';          /* 화면 하단에 표시됩니다. 갱신 여부 확인용 */
+const APP_VERSION = '1.5';          /* 화면 하단에 표시됩니다. 갱신 여부 확인용 */
 const APP_DATE = '2026-09-14';
 const DB_KEY = 'shdex.handover.v1';
 const THEME_KEY = 'shdex.theme';
@@ -483,36 +483,6 @@ const SHEET_STATUS = {
   confirmed: { key:'confirmed', label:'인수 확인', cls:'green' },
 };
 
-/* 기본 점검 항목 — 설정에서 자유롭게 수정할 수 있습니다. */
-const DEFAULT_TEMPLATES = {
-  guard: [
-    '근무 편성표 및 차기 근무자 투입 확인',
-    '총기·탄약(공포탄 포함) 수량 및 시건 상태 확인',
-    '무전기·전화기 통신 상태 확인 (감도 교신 완료)',
-    'CCTV 및 모니터 정상 작동 확인',
-    '출입증·방문객 대장 정리 상태 확인',
-    '차량 출입 기록 및 미반납 출입증 확인',
-    '위병소 비품·청결 상태 확인',
-    '열쇠(열쇠 대장) 수량 확인 후 인계',
-    '비상연락망 및 상황보고 계통 숙지',
-    '미처리 지시사항 구두 재확인',
-  ],
-  duty: [
-    '당직사령·당직부사관 지시사항 확인',
-    '인원 현황(총원 / 현재원 / 열외) 확인',
-    '외출·외박·휴가 인원 및 복귀 예정 시간 확인',
-    '환자·관심 인원 특이사항 확인',
-    '전화 수신 내역 및 전달사항 기록 확인',
-    '상황일지 작성 상태 확인',
-    '생활관 소등·점호 결과 확인',
-    '탄약고·주요 시설 순찰 기록 확인',
-    '당직 비품 및 열쇠 인수',
-    '미처리 지시사항 구두 재확인',
-  ],
-};
-
-const DEFAULT_SHIFTS = ['주간 (08:00~18:00)', '야간 (18:00~24:00)', '심야 (00:00~08:00)'];
-
 /* 달력 일정 색상 */
 const EV_COLORS = ['gray','blue','green','yellow','orange','red'];
 
@@ -522,8 +492,8 @@ function freshDB(){
     version: 1,
     unit: '',
     activeRole: 'guard',
-    templates: { guard: DEFAULT_TEMPLATES.guard.slice(), duty: DEFAULT_TEMPLATES.duty.slice() },
-    shifts: DEFAULT_SHIFTS.slice(),
+    templates: { guard: [], duty: [] },   /* 점검 항목은 설정에서 직접 등록합니다 */
+    shifts: [],                           /* 근무 구분도 설정에서 직접 등록합니다 */
     orders: [],
     sheets: [],
     events: [],
@@ -558,7 +528,9 @@ function normalize(d){
     if(['both','guard','duty'].indexOf(e.role) === -1) e.role = 'both';
     ['date','time','title','memo'].forEach(k => { if(typeof e[k] !== 'string') e[k] = ''; });
   });
-  if(!Array.isArray(d.shifts) || !d.shifts.length) d.shifts = DEFAULT_SHIFTS.slice();
+  if(!Array.isArray(d.shifts)) d.shifts = [];
+  if(!d.templates || typeof d.templates !== 'object') d.templates = { guard:[], duty:[] };
+  ['guard','duty'].forEach(k => { if(!Array.isArray(d.templates[k])) d.templates[k] = []; });
   d.orders.forEach(o => {
     o.relayCount = o.relayCount || 0;
     o.priority = PRIORITY[o.priority] ? o.priority : 'normal';
@@ -964,6 +936,14 @@ function viewHome(){
       '<div style="margin-top:8px"><button class="btn sm" data-act="go" data-view="orders">지시사항 보기</button></div>' +
       '</div>';
   }
+  if(!(db.templates[r.key] || []).length){
+    h += '<div class="callout warn">' +
+      '<b>' + esc(r.name) + ' 점검 항목이 등록되어 있지 않습니다.</b> ' +
+      '설정에서 우리 부대에서 실제로 확인하는 항목을 먼저 등록하십시오. ' +
+      '등록한 항목이 새 인계서마다 자동으로 들어갑니다.' +
+      '<div style="margin-top:8px"><button class="btn sm" data-act="go" data-view="settings">설정으로 가기</button></div>' +
+      '</div>';
+  }
   if(d){
     h += '<div class="callout info">' +
       '작성 중인 인계서가 있습니다. (' + esc(fmtDate(d.date)) + ' · ' + esc(d.shift || '시간 미지정') + ')' +
@@ -1091,10 +1071,7 @@ function viewSheet(){
   if(editable){
     h += '<div class="grid g2">' +
       f('근무일자', '<input type="date" data-in="sheet:date" value="' + esc(s.date) + '">') +
-      f('근무 구분', '<select data-in="sheet:shift">' +
-        db.shifts.map(x => '<option' + (x === s.shift ? ' selected' : '') + '>' + esc(x) + '</option>').join('') +
-        (db.shifts.indexOf(s.shift) === -1 && s.shift ? '<option selected>' + esc(s.shift) + '</option>' : '') +
-        '</select>') +
+      f('근무 구분', shiftField(s)) +
       f('인계자 (나가는 근무자)', '<input type="text" data-in="sheet:outName" placeholder="계급 / 성명" value="' + esc(s.outName) + '">') +
       f('인수자 (들어오는 근무자)', '<input type="text" data-in="sheet:inName" placeholder="계급 / 성명" value="' + esc(s.inName) + '">') +
     '</div>';
@@ -1226,6 +1203,20 @@ function viewSheet(){
   h += '<div class="tiny faint" style="margin-top:14px">작성 ' + fmtStamp(s.createdAt) + ' · 자동 저장됨</div>';
   h += '</div>';
   return h;
+}
+
+/* 설정에 등록된 근무 구분이 있으면 목록에서 고르고, 없으면 직접 입력합니다. */
+function shiftField(s){
+  if(!db.shifts.length){
+    return '<input type="text" data-in="sheet:shift" ' +
+      'placeholder="근무 시간대 (설정에서 목록으로 등록할 수 있습니다)" value="' + esc(s.shift) + '">';
+  }
+  const opts = db.shifts.slice();
+  if(s.shift && opts.indexOf(s.shift) === -1) opts.unshift(s.shift);
+  return '<select data-in="sheet:shift">' +
+    (s.shift ? '' : '<option value="">선택하십시오</option>') +
+    opts.map(x => '<option' + (x === s.shift ? ' selected' : '') + '>' + esc(x) + '</option>').join('') +
+    '</select>';
 }
 
 function f(label, inner){
@@ -1382,11 +1373,19 @@ function viewSettings(){
   h += f('부대 / 소속 표기', '<input type="text" data-in="db:unit" placeholder="예) ○○사단 ○○연대 1대대" value="' + esc(db.unit) + '">');
 
   h += '<h2 class="sec">근무 구분</h2>';
-  h += '<div class="small muted" style="margin-bottom:8px">인계서에서 선택할 근무 시간대입니다. 한 줄에 하나씩 입력하십시오.</div>';
-  h += '<textarea data-in="db:shifts" style="min-height:100px">' + esc(db.shifts.join('\n')) + '</textarea>';
+  h += '<div class="small muted" style="margin-bottom:8px">' +
+    '인계서에서 고를 근무 시간대를 <b>한 줄에 하나씩</b> 입력하십시오. ' +
+    '비워 두면 인계서에서 직접 입력하게 됩니다.</div>';
+  h += '<textarea data-in="db:shifts" style="min-height:100px" ' +
+    'placeholder="한 줄에 하나씩 입력하십시오.">' + esc(db.shifts.join('\n')) + '</textarea>';
 
   h += '<h2 class="sec">' + esc(r.name) + ' 기본 점검 항목</h2>';
-  h += '<div class="small muted" style="margin-bottom:8px">새 인계서를 만들 때 자동으로 들어가는 항목입니다. (' + tpl.length + '개)</div>';
+  h += '<div class="small muted" style="margin-bottom:8px">' +
+    '새 인계서를 만들 때 자동으로 들어가는 항목입니다. 우리 부대에서 <b>실제로 확인하는 것</b>만 등록하십시오. ' +
+    '(현재 ' + tpl.length + '개)</div>';
+  if(!tpl.length){
+    h += '<div class="empty small">등록된 점검 항목이 없습니다. 아래에서 추가하십시오.</div>';
+  }
   tpl.forEach((t, i) => {
     h += '<div class="check">' +
       '<span class="faint mono" style="width:20px;text-align:right;padding-top:3px">' + (i+1) + '</span>' +
@@ -1395,9 +1394,9 @@ function viewSettings(){
     '</div>';
   });
   h += '<div class="btn-row" style="margin-top:8px">' +
-    '<input type="text" id="new-tpl" placeholder="항목 추가 후 Enter" style="max-width:360px">' +
+    '<input type="text" id="new-tpl" placeholder="점검 항목을 입력한 뒤 Enter" style="max-width:360px">' +
     '<button class="btn sm" data-act="add-tpl">추가</button>' +
-    '<button class="btn sm ghost" data-act="reset-tpl">기본값으로 되돌리기</button></div>';
+    (tpl.length ? '<button class="btn sm ghost" data-act="clear-tpl">전체 비우기</button>' : '') + '</div>';
 
   h += '<h2 class="sec">데이터</h2>';
   h += '<div class="callout warn small">' +
@@ -1595,9 +1594,11 @@ function viewGuide(){
   h += '<h2 class="sec guide-break">1. 처음 한 번만 하는 준비</h2>';
   h += '<ul class="plain">' +
     '<li>처음 실행하면 <b>부대명</b>과 <b>직책</b>을 묻습니다. 입력하면 준비가 끝납니다.</li>' +
-    '<li><b>설정</b>에서 점검 항목을 우리 부대 실정에 맞게 고칩니다. ' +
-      '기본으로 들어 있는 10개는 예시이므로, 실제로 확인하지 않는 항목은 지우고 필요한 항목을 추가하십시오.</li>' +
-    '<li>근무 시간대(주간·야간·심야)도 설정에서 부대 편성에 맞게 바꿀 수 있습니다.</li>' +
+    '<li><b>설정</b>에서 <b>기본 점검 항목</b>을 등록합니다. 처음에는 비어 있으므로, ' +
+      '우리 부대에서 실제로 확인하는 것만 직접 넣으십시오. ' +
+      '여기 등록한 항목이 새 인계서마다 자동으로 들어갑니다.</li>' +
+    '<li><b>근무 구분</b>(근무 시간대)도 설정에서 한 줄에 하나씩 등록합니다. ' +
+      '등록하면 인계서에서 목록으로 고를 수 있고, 비워 두면 인계서에서 직접 입력합니다.</li>' +
     '<li>위병조장과 당직병은 <b>서로 다른 목록</b>을 씁니다. 좌측 상단 이름을 눌러 전환한 뒤 각각 설정하십시오.</li>' +
   '</ul>';
 
@@ -1691,6 +1692,9 @@ function viewGuide(){
     ['달력에 적은 일정이 인계서에 안 보인다',
      '인계서에는 <b>그 인계서 날짜의 오늘·내일 일정</b>만 나옵니다. ' +
      '더 뒤의 일정은 홈의 「다가오는 일정」이나 달력에서 확인하십시오.'],
+    ['창(탭)을 여러 개 띄워도 되는가',
+     '됩니다. 한쪽에서 저장하면 다른 창도 자동으로 최신 내용으로 맞춰집니다. ' +
+     '다만 같은 항목을 동시에 고치지는 마십시오.'],
     ['파일을 새로 받았는데 화면이 예전 그대로다',
      '크롬이 예전 파일을 기억하고 있는 것입니다. <b>Ctrl + Shift + R</b>로 강력 새로고침 하십시오. ' +
      '설정 맨 아래 버전 번호로 갱신 여부를 확인할 수 있습니다.'],
@@ -1817,7 +1821,7 @@ function importData(){
 let saveTimer = null;
 function saveSoon(){
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveDB, 350);
+  saveTimer = setTimeout(() => { saveTimer = null; saveDB(); }, 350);
 }
 
 document.addEventListener('click', e => {
@@ -2006,9 +2010,9 @@ document.addEventListener('click', e => {
       saveDB();
       render();
     },
-    'reset-tpl': () => {
-      if(!confirm('기본 점검 항목으로 되돌립니다. 수정한 내용은 사라집니다.')) return;
-      db.templates[db.activeRole] = DEFAULT_TEMPLATES[db.activeRole].slice();
+    'clear-tpl': () => {
+      if(!confirm(role().name + ' 기본 점검 항목을 모두 지웁니다. 계속하시겠습니까?')) return;
+      db.templates[db.activeRole] = [];
       saveDB();
       render();
     },
@@ -2125,7 +2129,8 @@ function welcome(){
     '<div class="callout info small" style="margin-top:6px">' +
       '간부에게 지시를 받으면 그 자리에서 지시사항으로 등록하십시오. ' +
       '완료 처리 전까지 모든 인계서에 자동으로 포함되므로 누락되지 않습니다.' +
-      '<div style="margin-top:6px">자세한 사용법은 좌측 메뉴 「사용 설명서」에 있습니다.</div></div>';
+      '<div style="margin-top:6px">시작한 뒤 <b>설정</b>에서 근무 구분과 점검 항목을 먼저 등록하십시오. ' +
+      '자세한 사용법은 좌측 메뉴 「사용 설명서」에 있습니다.</div></div>';
   openModal('초기 설정', body,
     '<button class="btn primary" id="w-ok">시작</button>', () => {
     const go2 = () => {
@@ -2154,7 +2159,24 @@ function welcome(){
     if(!narrow && state.sidebarHidden){ state.sidebarHidden = false; renderSidebar(); }
   });
   if(!db.unit && !db.sheets.length && !db.orders.length) welcome();
-  window.addEventListener('beforeunload', () => { clearTimeout(saveTimer); saveDB(); });
+  /* 아직 저장되지 않은 입력이 있을 때만 저장합니다.
+     무조건 저장하면, 창을 여러 개 띄워 둔 경우 오래된 창을 닫을 때
+     다른 창에서 작업한 내용을 덮어쓰게 됩니다. */
+  window.addEventListener('beforeunload', () => {
+    if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; saveDB(); }
+  });
+
+  /* 다른 창에서 저장하면 이 창도 최신 내용으로 맞춥니다.
+     단, 이 창에서 입력 중이거나 저장 대기 중이면 건드리지 않습니다. */
+  window.addEventListener('storage', e => {
+    if(e.key !== DB_KEY || !e.newValue || saveTimer) return;
+    const el = document.activeElement;
+    if(el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    try{
+      db = normalize(JSON.parse(e.newValue));
+      render();
+    }catch(err){ /* 형식이 깨진 경우 현재 상태를 유지합니다 */ }
+  });
 })();
 </script>
 </body>
