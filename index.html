@@ -268,6 +268,29 @@ select{cursor:pointer}
 
 .divider{height:1px;background:var(--border);margin:26px 0}
 
+/* 사용 설명서 */
+.steps{margin:10px 0 4px}
+.step{display:flex;gap:13px;padding:11px 0;border-bottom:1px solid var(--border)}
+.step:last-child{border-bottom:none}
+.step-n{
+  width:22px;height:22px;flex:0 0 22px;border-radius:50%;background:var(--text);color:var(--bg);
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;margin-top:3px;
+}
+.step-b{flex:1;min-width:0}
+.step-t{font-weight:600;margin-bottom:2px}
+.step-d{font-size:13.5px;color:var(--text-dim);line-height:1.75}
+.step-d b{color:var(--text);font-weight:600}
+.tbl-wrap{overflow-x:auto;margin:8px 0 4px}
+table.tbl{width:100%;border-collapse:collapse;font-size:13.5px;min-width:420px}
+table.tbl th,table.tbl td{
+  border:1px solid var(--border);padding:8px 11px;text-align:left;vertical-align:top;line-height:1.65;
+}
+table.tbl th{background:var(--bg-sidebar);font-weight:600;font-size:12.5px;color:var(--text-dim)}
+table.tbl td:first-child{width:36%;font-weight:500}
+ul.plain{margin:6px 0 4px;padding-left:18px;font-size:14px;line-height:1.85}
+ul.plain li{margin-bottom:3px}
+ul.plain li b{font-weight:600}
+
 /* 모달 */
 .modal-bg{
   position:fixed;inset:0;background:rgba(15,15,15,.45);display:flex;align-items:center;
@@ -332,7 +355,10 @@ select{cursor:pointer}
   .app,.main,.content{display:block;height:auto;overflow:visible}
   .page{max-width:none;padding:0}
   body{font-size:11.5pt;color:#000;background:#fff}
-  .card,.sheet-head,.sign-box,.check{border-color:#bbb;break-inside:avoid}
+  .card,.sheet-head,.sign-box,.check,.step,table.tbl tr{border-color:#bbb;break-inside:avoid}
+  .tbl-wrap{overflow:visible}
+  table.tbl{min-width:0}
+  .guide-break{break-before:page}
   h2.sec{break-after:avoid}
   .check.done .txt > .t{color:#000}
   .content{padding:0}
@@ -726,6 +752,7 @@ function render(){
     case 'order':    html = viewOrder(); break;
     case 'records':  html = viewRecords(); break;
     case 'settings': html = viewSettings(); break;
+    case 'guide':    html = viewGuide(); break;
     default:         html = viewHome();
   }
   c.innerHTML = html;
@@ -764,6 +791,7 @@ function renderSidebar(){
       item('records','인계 기록', 0) +
       '<div class="nav-label">관리</div>' +
       item('settings','설정', 0) +
+      item('guide','사용 설명서', 0) +
     '</div>' +
     '<div class="sidebar-foot">' +
       '<button data-act="theme">' + (document.documentElement.getAttribute('data-theme') === 'dark' ? '라이트 모드' : '다크 모드') + '</button>' +
@@ -783,7 +811,7 @@ function renderTopbar(){
     crumb = '<span data-act="go" data-view="orders" style="cursor:pointer">지시사항</span><span class="sep">/</span><b>' +
       (o ? esc(o.title) : '') + '</b>';
   }else{
-    const names = { home:'홈', orders:'지시사항', records:'인계 기록', settings:'설정' };
+    const names = { home:'홈', orders:'지시사항', records:'인계 기록', settings:'설정', guide:'사용 설명서' };
     crumb = '<span>' + esc(r.name) + '</span><span class="sep">/</span><b>' + (names[state.view] || '홈') + '</b>';
   }
   $('#topbar').innerHTML =
@@ -794,7 +822,8 @@ function renderTopbar(){
     '<div class="crumb">' + crumb + '</div>' +
     '<div class="spacer"></div>' +
     '<button class="btn sm" data-act="new-order">지시사항 등록</button>' +
-    (state.view === 'sheet' ? '<button class="btn sm" data-act="print">인쇄</button>' : '');
+    (state.view === 'sheet' || state.view === 'guide'
+      ? '<button class="btn sm" data-act="print">인쇄</button>' : '');
 }
 
 /* ---------- 홈 ---------- */
@@ -1231,14 +1260,159 @@ function viewSettings(){
   '</div>';
   h += '<div class="tiny faint" style="margin-top:10px">인계서 ' + db.sheets.length + '건 · 지시사항 ' + db.orders.length + '건 저장됨</div>';
 
-  h += '<h2 class="sec">사용 절차</h2>';
-  h += '<div class="card small" style="line-height:1.95">' +
-    '1. 간부에게 지시를 받으면 그 자리에서 「지시사항 등록」으로 남긴다.<br>' +
-    '2. 교대 30분 전 「인계서 작성」으로 점검 항목을 확인하며 채운다.<br>' +
-    '3. 미처리 지시사항은 자동으로 인계서에 포함된다. 처리한 것만 완료로 바꾼다.<br>' +
-    '4. 인수자와 화면을 함께 보며 확인한 뒤 「인수인계 완료 처리」를 누른다.<br>' +
-    '5. 남은 지시는 다음 인계서로 이월되며, 3회 이상 이월되면 경고가 표시된다.' +
+  h += '<h2 class="sec">사용법</h2>';
+  h += '<div class="small muted" style="margin-bottom:10px">' +
+    '교대 절차, 상황별 대처, 자주 나오는 실수를 정리해 두었습니다. 인쇄해서 근무 위치에 붙여 두십시오.</div>';
+  h += '<button class="btn" data-act="go" data-view="guide">사용 설명서 보기</button>';
+  h += '</div>';
+  return h;
+}
+
+/* ---------- 사용 설명서 ---------- */
+function step(n, title, desc){
+  return '<div class="step"><div class="step-n">' + n + '</div>' +
+    '<div class="step-b"><div class="step-t">' + title + '</div>' +
+    '<div class="step-d">' + desc + '</div></div></div>';
+}
+function table(head, rows){
+  return '<div class="tbl-wrap"><table class="tbl"><thead><tr>' +
+    head.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' +
+    rows.map(r => '<tr>' + r.map(c => '<td>' + c + '</td>').join('') + '</tr>').join('') +
+    '</tbody></table></div>';
+}
+
+function viewGuide(){
+  let h = '<div class="page">';
+  h += '<div class="page-title">사용 설명서</div>';
+  h += '<div class="page-desc">위병조장 · 당직병 근무 인수인계 프로그램</div>';
+
+  h += '<div class="callout info">' +
+    '지시사항은 한 번 등록해 두면 <b>완료 처리할 때까지 다음 근무자에게 자동으로 넘어갑니다.</b> ' +
+    '교대 때는 인계서 한 장을 인수자와 같이 보면서 확인하고, 양쪽 이름을 넣으면 끝납니다.' +
+    '<div style="margin-top:8px" class="no-print">' +
+    '<button class="btn sm" data-act="print">이 설명서 인쇄</button></div></div>';
+
+  /* ── 교대 절차 요약: 벽에 붙여 두는 용도 ── */
+  h += '<h2 class="sec">교대 절차 요약</h2>';
+  h += '<div class="small muted" style="margin-bottom:4px">이 네 가지만 지키면 됩니다. 인쇄해서 근무 위치에 붙여 두십시오.</div>';
+  h += '<div class="steps">' +
+    step(1, '근무 중 — 지시를 받으면 그 자리에서 등록',
+      '간부에게 지시를 받으면 잊기 전에 우측 상단 <b>「지시사항 등록」</b>을 누릅니다. ' +
+      '들은 내용을 한 줄로 적고, 지시한 사람 이름을 넣습니다. 이 한 번이 전체의 핵심입니다.') +
+    step(2, '교대 30분 전 — 인계서 작성',
+      '<b>「인계서 작성」</b>을 누르면 점검 항목과 미처리 지시사항이 자동으로 들어간 인계서가 만들어집니다. ' +
+      '항목을 <b>실제로 확인하면서</b> 하나씩 체크합니다. 수량이나 특이사항은 옆 비고란에 적습니다.') +
+    step(3, '교대 시점 — 인수자와 화면을 같이 본다',
+      '인수자를 옆에 세우고 화면을 위에서 아래로 읽어 내려갑니다. ' +
+      '지시사항 중 <b>실제로 처리를 끝낸 것만</b> 「완료」로 바꿉니다. 나머지는 「계속 인계」로 둡니다.') +
+    step(4, '확인 후 — 완료 처리',
+      '인계자와 인수자 이름을 넣고 <b>「인수인계 완료 처리」</b>를 누릅니다. ' +
+      '남은 지시사항은 다음 인계서로 자동 이월되고, 기록에 저장됩니다.') +
   '</div>';
+
+  /* ── 상세 ── */
+  h += '<h2 class="sec guide-break">1. 처음 한 번만 하는 준비</h2>';
+  h += '<ul class="plain">' +
+    '<li>처음 실행하면 <b>부대명</b>과 <b>직책</b>을 묻습니다. 입력하면 준비가 끝납니다.</li>' +
+    '<li><b>설정</b>에서 점검 항목을 우리 부대 실정에 맞게 고칩니다. ' +
+      '기본으로 들어 있는 10개는 예시이므로, 실제로 확인하지 않는 항목은 지우고 필요한 항목을 추가하십시오.</li>' +
+    '<li>근무 시간대(주간·야간·심야)도 설정에서 부대 편성에 맞게 바꿀 수 있습니다.</li>' +
+    '<li>위병조장과 당직병은 <b>서로 다른 목록</b>을 씁니다. 좌측 상단 이름을 눌러 전환한 뒤 각각 설정하십시오.</li>' +
+  '</ul>';
+
+  h += '<h2 class="sec">2. 근무 중 — 지시를 받았을 때</h2>';
+  h += '<div class="callout warn small">' +
+    '가장 중요한 단계입니다. <b>머리로 기억했다가 나중에 등록하겠다는 것이 곧 누락입니다.</b> ' +
+    '전화를 끊자마자, 간부가 돌아서자마자 등록하십시오.</div>';
+  h += '<ul class="plain">' +
+    '<li>우측 상단 <b>「지시사항 등록」</b>을 누릅니다.</li>' +
+    '<li><b>지시 내용</b>은 한 줄로 요약합니다. 예) 정문 CCTV 2번 카메라 화면 끊김, 통신반 보고</li>' +
+    '<li><b>상세 내용</b>에는 배경과 조치 방법을 적습니다. 다음 근무자가 이것만 보고 움직일 수 있어야 합니다.</li>' +
+    '<li><b>지시한 사람</b>을 반드시 적습니다. 나중에 되물어야 할 때 누구에게 갈지가 분명해집니다.</li>' +
+    '<li><b>중요도</b>는 긴급 / 중요 / 일반 중에 고릅니다. 긴급과 중요는 목록 위로 올라옵니다.</li>' +
+    '<li>위병조장과 당직병이 함께 알아야 할 내용이면 <b>대상 직책</b>을 「공통」으로 둡니다.</li>' +
+  '</ul>';
+
+  h += '<h2 class="sec">3. 교대 30분 전 — 인계서 작성</h2>';
+  h += '<ul class="plain">' +
+    '<li><b>「인계서 작성」</b>을 누르면 인계서가 만들어집니다. 작성 중에는 입력하는 즉시 자동 저장되므로 ' +
+      '중간에 다른 일을 보다가 돌아와도 됩니다.</li>' +
+    '<li>점검 항목은 <b>현장을 확인하면서</b> 체크합니다. 앉아서 한꺼번에 누르면 이 프로그램을 쓰는 의미가 없습니다.</li>' +
+    '<li>수량·상태처럼 숫자가 있는 항목은 비고란에 적습니다. 예) 열쇠 12개 확인, 공포탄 이상 없음</li>' +
+    '<li>점검 항목이 모자라면 목록 아래에서 <b>이번 인계서에만</b> 항목을 추가할 수 있습니다. ' +
+      '매번 필요한 항목이면 설정에서 기본 항목으로 넣으십시오.</li>' +
+    '<li><b>반드시 전달할 사항</b>에는 다음 근무자가 놓치면 안 되는 내용을 한두 줄로 적습니다. ' +
+      '예) 23시 이후 정문 보수공사 차량 2대 출입 예정, 간부 확인 후 통과</li>' +
+    '<li><b>근무 중 특이사항</b>은 시각 순으로 사실만 적습니다. 예) 19:40 대대 상황실 유선, 미복귀 인원 없음 확인</li>' +
+  '</ul>';
+
+  h += '<h2 class="sec">4. 교대 시점 — 인수인계</h2>';
+  h += '<ul class="plain">' +
+    '<li>인수자와 <b>화면을 같이 보면서</b> 위에서 아래로 확인합니다. 구두로만 넘기지 마십시오.</li>' +
+    '<li>지시사항마다 <b>계속 인계 / 완료 / 보류</b> 중에 고릅니다.' +
+      '<br>· <b>완료</b> — 실제로 처리가 끝난 것만. 이후 목록에서 사라집니다.' +
+      '<br>· <b>계속 인계</b> — 아직 안 끝난 것. 다음 근무자에게 넘어갑니다.' +
+      '<br>· <b>보류</b> — 지금은 할 수 없는 것. 사유를 옆 칸에 적습니다.</li>' +
+    '<li>옆 칸에 <b>진행 상황</b>을 한 줄 적어 두면 다음 근무자가 어디까지 됐는지 압니다. ' +
+      '예) 통신반 유선 보고 완료, 주간에 방문 예정</li>' +
+    '<li>인계자·인수자 이름을 넣고 <b>「인수인계 완료 처리」</b>를 누릅니다. ' +
+      '미확인 점검 항목과 이월되는 지시 건수를 알려 주므로, 한 번 더 확인하고 확정하십시오.</li>' +
+    '<li>서면 보관이 필요하면 <b>「인쇄」</b>로 출력해 서명하면 됩니다.</li>' +
+  '</ul>';
+
+  h += '<h2 class="sec">5. 근무를 인수했다면</h2>';
+  h += '<ul class="plain">' +
+    '<li><b>홈</b> 화면에서 미처리 지시사항을 먼저 확인합니다.</li>' +
+    '<li>빨간색 <b>이월 경고</b>가 있으면 이번 근무에서 먼저 처리합니다. ' +
+      '3회 이상 넘어온 지시는 간부가 다시 물어보기 직전의 항목입니다.</li>' +
+    '<li>처리했으면 지시사항을 눌러 <b>완료</b>로 바꾸고, 무엇을 했는지 메모를 남깁니다.</li>' +
+  '</ul>';
+
+  /* ── 상황별 대처 ── */
+  h += '<h2 class="sec guide-break">상황별 대처</h2>';
+  h += table(['상황', '처리 방법'], [
+    ['완료 처리한 인계서를 고쳐야 한다',
+     '인계 기록에서 해당 인계서를 열고 <b>「수정 모드로 되돌리기」</b>를 누릅니다. ' +
+     '다만 이미 올라간 이월 횟수는 되돌아가지 않습니다.'],
+    ['지시사항을 잘못 등록했다',
+     '지시사항 목록에서 해당 항목을 열고 <b>「내용 수정」</b> 또는 <b>「삭제」</b>를 누릅니다.'],
+    ['우리 근무자가 처리할 수 없는 지시다',
+     '<b>보류</b>로 바꾸고 사유를 적습니다. 그 뒤 지시한 간부에게 보고해 정리하십시오. ' +
+     '그냥 계속 인계로 두면 다음 근무자에게 떠넘기는 것이 됩니다.'],
+    ['3회 이월 경고가 떴다',
+     '이번 근무에서 처리하거나, 처리가 어려운 사유를 지시한 간부에게 보고하고 완료 또는 보류로 정리합니다.'],
+    ['인계서를 실수로 두 개 만들었다',
+     '작성 중인 인계서는 직책당 하나만 유지됩니다. 잘못 만든 것은 열어서 <b>「삭제」</b>하십시오.'],
+    ['근무 PC를 바꿔야 한다',
+     '설정에서 <b>백업 파일 내려받기</b>로 .json 파일을 받아 새 PC로 옮긴 뒤, ' +
+     '그 PC에서 <b>불러오기</b> 합니다. 파일만 복사해서는 내용이 따라가지 않습니다.'],
+    ['점검 항목이 우리 부대와 맞지 않는다',
+     '설정에서 항목을 직접 고치거나, 지우고 새로 추가합니다. 직책별로 따로 설정합니다.'],
+    ['야간에 화면이 너무 밝다',
+     '좌측 하단 <b>「다크 모드」</b>를 누릅니다.'],
+  ]);
+
+  h += '<h2 class="sec">자주 나오는 실수</h2>';
+  h += '<ul class="plain">' +
+    '<li><b>지시를 나중에 등록하려다 잊는다.</b> 받은 즉시 등록하는 것이 이 프로그램의 전부입니다.</li>' +
+    '<li><b>처리하지 않았는데 완료로 바꾼다.</b> 기록에서 사라져 아무도 모르게 됩니다. ' +
+      '못 했으면 계속 인계로 두고 사유를 적으십시오.</li>' +
+    '<li><b>교대 직전에 몰아서 체크한다.</b> 점검 항목을 실제로 확인하지 않게 되어 의미가 없습니다.</li>' +
+    '<li><b>특이사항에 「이상 없음」만 적는다.</b> 시각과 사실을 남겨야 나중에 확인할 수 있습니다.</li>' +
+    '<li><b>인수자 이름을 대충 적는다.</b> 누가 받았는지가 기록의 핵심입니다.</li>' +
+  '</ul>';
+
+  h += '<h2 class="sec">반드시 지킬 것</h2>';
+  h += '<div class="callout danger">' +
+    '<b>데이터는 이 컴퓨터의 이 브라우저에만 저장됩니다.</b> 브라우저 기록을 삭제하면 함께 지워집니다. ' +
+    '주 1회 이상 설정에서 백업 파일을 내려받아 보관하십시오.</div>';
+  h += '<div class="callout warn">' +
+    '<b>군사 보안에 해당하는 내용은 입력하지 마십시오.</b> ' +
+    '암구호, 부대 편성, 상세 경계 계획 등은 규정에 따라 별도 문서로 관리해야 합니다. ' +
+    '계급·성명이 기록되므로 공용 PC 관리도 부대 규정을 따르십시오.</div>';
+
+  h += '<div class="tiny faint" style="margin-top:24px">' +
+    '인터넷 연결 없이 동작하며, 입력한 내용은 외부로 전송되지 않습니다.</div>';
   h += '</div>';
   return h;
 }
@@ -1589,7 +1763,8 @@ function welcome(){
     f('먼저 사용할 직책', '<select id="w-role"><option value="guard">위병조장</option><option value="duty">당직병</option></select>') +
     '<div class="callout info small" style="margin-top:6px">' +
       '간부에게 지시를 받으면 그 자리에서 지시사항으로 등록하십시오. ' +
-      '완료 처리 전까지 모든 인계서에 자동으로 포함되므로 누락되지 않습니다.</div>';
+      '완료 처리 전까지 모든 인계서에 자동으로 포함되므로 누락되지 않습니다.' +
+      '<div style="margin-top:6px">자세한 사용법은 좌측 메뉴 「사용 설명서」에 있습니다.</div></div>';
   openModal('초기 설정', body,
     '<button class="btn primary" id="w-ok">시작</button>', () => {
     const go2 = () => {
