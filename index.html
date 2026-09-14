@@ -455,7 +455,7 @@ ul.plain li b{font-weight:600}
    ============================================================ */
 
 /* ---------- 상수 ---------- */
-const APP_VERSION = '1.5';          /* 화면 하단에 표시됩니다. 갱신 여부 확인용 */
+const APP_VERSION = '1.6';          /* 화면 하단에 표시됩니다. 갱신 여부 확인용 */
 const APP_DATE = '2026-09-14';
 const DB_KEY = 'shdex.handover.v1';
 const THEME_KEY = 'shdex.theme';
@@ -1608,7 +1608,7 @@ function viewGuide(){
     '전화를 끊자마자, 간부가 돌아서자마자 등록하십시오.</div>';
   h += '<ul class="plain">' +
     '<li>우측 상단 <b>「지시사항 등록」</b>을 누릅니다.</li>' +
-    '<li><b>지시 내용</b>은 한 줄로 요약합니다. 예) 정문 CCTV 2번 카메라 화면 끊김, 통신반 보고</li>' +
+    '<li><b>지시 내용</b>은 다음 근무자가 한눈에 알아볼 수 있게 한 줄로 요약합니다.</li>' +
     '<li><b>상세 내용</b>에는 배경과 조치 방법을 적습니다. 다음 근무자가 이것만 보고 움직일 수 있어야 합니다.</li>' +
     '<li><b>지시한 사람</b>을 반드시 적습니다. 나중에 되물어야 할 때 누구에게 갈지가 분명해집니다.</li>' +
     '<li><b>중요도</b>는 긴급 / 중요 / 일반 중에 고릅니다. 긴급과 중요는 목록 위로 올라옵니다.</li>' +
@@ -1636,7 +1636,7 @@ function viewGuide(){
       '<br>· <b>계속 인계</b> — 아직 안 끝난 것. 다음 근무자에게 넘어갑니다.' +
       '<br>· <b>보류</b> — 지금은 할 수 없는 것. 사유를 옆 칸에 적습니다.</li>' +
     '<li>옆 칸에 <b>진행 상황</b>을 한 줄 적어 두면 다음 근무자가 어디까지 됐는지 압니다. ' +
-      '예) 통신반 유선 보고 완료, 주간에 방문 예정</li>' +
+      '어디까지 했고 다음에 무엇을 해야 하는지를 적으십시오.</li>' +
     '<li>인계자·인수자 이름을 넣고 <b>「인수인계 완료 처리」</b>를 누릅니다. ' +
       '미확인 점검 항목과 이월되는 지시 건수를 알려 주므로, 한 번 더 확인하고 확정하십시오.</li>' +
     '<li>서면 보관이 필요하면 <b>「인쇄」</b>로 출력해 서명하면 됩니다.</li>' +
@@ -1729,10 +1729,10 @@ function viewGuide(){
 function orderModal(existing){
   const o = existing || {};
   const body =
-    f('지시 내용 (한 줄 요약) *', '<input type="text" id="m-title" placeholder="예) 정문 CCTV 2번 카메라 화면 끊김 — 통신반 보고" value="' + esc(o.title || '') + '">') +
+    f('지시 내용 (한 줄 요약) *', '<input type="text" id="m-title" placeholder="받은 지시를 한 줄로 요약하십시오" value="' + esc(o.title || '') + '">') +
     f('상세 내용', '<textarea id="m-body" placeholder="지시 배경, 조치 방법, 확인해야 할 것 등">' + esc(o.body || '') + '</textarea>') +
     '<div class="grid g2">' +
-      f('지시한 사람', '<input type="text" id="m-from" placeholder="예) 당직사령 김○○ 대위" value="' + esc(o.from || '') + '">') +
+      f('지시한 사람', '<input type="text" id="m-from" placeholder="직책 / 계급 / 성명" value="' + esc(o.from || '') + '">') +
       f('기한', '<input type="date" id="m-due" value="' + esc(o.due || '') + '">') +
     '</div>' +
     '<div class="grid g2">' +
