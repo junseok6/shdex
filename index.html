@@ -702,7 +702,14 @@ function openModal(title, bodyHTML, footHTML, onMount){
   if(onMount) onMount(root);
 }
 function closeModal(){ $('#modal-root').innerHTML = ''; }
+/* IME(한글) 조합 중에는 Enter·Escape 가 글자 확정/조합 취소 용도로 쓰입니다.
+   이때 버튼 동작까지 실행되면 마지막 글자가 잘리거나 창이 닫히므로 걸러냅니다. */
+function isComposing(e){
+  return e.isComposing === true || e.keyCode === 229;
+}
+
 document.addEventListener('keydown', e => {
+  if(isComposing(e)) return;
   if(e.key === 'Escape') closeModal();
 });
 
@@ -1143,8 +1150,22 @@ function viewOrder(){
 /* ---------- 인계 기록 ---------- */
 function viewRecords(){
   const r = role();
+  let h = '<div class="page">';
+  h += '<div class="page-title"><span class="emoji">📚</span>인계 기록</div>';
+  h += '<div class="page-desc">' + esc(r.name) + ' 인계서 ' + sheetsFor(r.key).length + '건</div>';
+  h += '<div class="btn-row" style="margin-bottom:14px">' +
+    '<input type="search" id="rec-q" placeholder="날짜 · 이름 · 내용 검색" value="' + esc(state.recordQuery) + '" style="max-width:340px">' +
+    '<div class="spacer"></div>' +
+    '<button class="btn primary" data-act="start-handover">✍️ 인계서 작성</button></div>';
+  h += '<div id="rec-list">' + recordList() + '</div>';
+  h += '</div>';
+  return h;
+}
+
+/* 검색 결과만 따로 그립니다. 입력창은 건드리지 않으므로 한글 조합이 유지됩니다. */
+function recordList(){
   const q = state.recordQuery.trim().toLowerCase();
-  let list = sheetsFor(r.key);
+  let list = sheetsFor(role().key);
   if(q){
     list = list.filter(s => {
       const hay = [s.date, s.shift, s.outName, s.inName, s.notes, s.keyMessage]
@@ -1153,28 +1174,18 @@ function viewRecords(){
       return hay.indexOf(q) !== -1;
     });
   }
-  let h = '<div class="page">';
-  h += '<div class="page-title"><span class="emoji">📚</span>인계 기록</div>';
-  h += '<div class="page-desc">' + esc(r.name) + ' 인계서 ' + sheetsFor(r.key).length + '건</div>';
-  h += '<div class="btn-row" style="margin-bottom:14px">' +
-    '<input type="search" id="rec-q" placeholder="날짜 · 이름 · 내용 검색" value="' + esc(state.recordQuery) + '" style="max-width:340px">' +
-    '<div class="spacer"></div>' +
-    '<button class="btn primary" data-act="start-handover">✍️ 인계서 작성</button></div>';
-
   if(!list.length){
-    h += '<div class="empty"><span class="e">📭</span>' + (q ? '검색 결과가 없습니다.' : '인계 기록이 없습니다.') + '</div>';
-  }else{
-    let lastMonth = '';
-    list.forEach(s => {
-      const m = s.date.slice(0,7);
-      if(m !== lastMonth){
-        lastMonth = m;
-        h += '<h3 class="sub">' + esc(m.replace('-','년 ') + '월') + '</h3>';
-      }
-      h += sheetRow(s);
-    });
+    return '<div class="empty"><span class="e">📭</span>' + (q ? '검색 결과가 없습니다.' : '인계 기록이 없습니다.') + '</div>';
   }
-  h += '</div>';
+  let h = '', lastMonth = '';
+  list.forEach(s => {
+    const m = s.date.slice(0,7);
+    if(m !== lastMonth){
+      lastMonth = m;
+      h += '<h3 class="sub">' + esc(m.replace('-','년 ') + '월') + '</h3>';
+    }
+    h += sheetRow(s);
+  });
   return h;
 }
 
@@ -1487,9 +1498,8 @@ document.addEventListener('input', e => {
   if(spec === undefined){
     if(el.id === 'rec-q'){
       state.recordQuery = el.value;
-      render();
-      const q = $('#rec-q');
-      if(q){ q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+      const box = $('#rec-list');
+      if(box) box.innerHTML = recordList();
     }
     return;
   }
@@ -1538,6 +1548,14 @@ document.addEventListener('input', e => {
     saveSoon();
   }
 });
+/* 조합 완료 시점의 최종 값을 확실히 반영합니다. */
+document.addEventListener('compositionend', e => {
+  const el = e.target;
+  if(el && (el.dataset.in !== undefined || el.id === 'rec-q')){
+    el.dispatchEvent(new Event('input', { bubbles:true }));
+  }
+});
+
 document.addEventListener('change', e => {
   const el = e.target;
   if(el.dataset.in && el.type === 'checkbox') return; /* input 이벤트에서 처리됨 */
@@ -1547,9 +1565,9 @@ document.addEventListener('change', e => {
   }
 });
 
-/* Enter 로 빠르게 추가 */
+/* Enter 로 빠르게 추가 (한글 조합 중이면 첫 Enter 는 글자 확정에 쓰입니다) */
 document.addEventListener('keydown', e => {
-  if(e.key !== 'Enter') return;
+  if(e.key !== 'Enter' || isComposing(e)) return;
   const id = e.target.id;
   if(id === 'new-check')      $('[data-act="add-check"]').click();
   else if(id === 'new-tpl')   $('[data-act="add-tpl"]').click();
@@ -1580,7 +1598,7 @@ function welcome(){
       render();
     };
     $('#w-ok').addEventListener('click', go2);
-    $('#w-unit').addEventListener('keydown', ev => { if(ev.key === 'Enter') go2(); });
+    $('#w-unit').addEventListener('keydown', ev => { if(ev.key === 'Enter' && !isComposing(ev)) go2(); });
     $('#w-unit').focus();
   });
 }
