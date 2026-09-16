@@ -271,6 +271,7 @@ select{cursor:pointer}
 .row:hover{background:var(--bg-hover)}
 .row .grow{flex:1;min-width:0}
 .row .ttl{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .ttl.done{text-decoration:line-through;color:var(--text-faint)}
 
 .empty{
   text-align:center;padding:50px 20px;color:var(--text-faint);border:1px dashed var(--border-strong);
@@ -341,6 +342,7 @@ select{cursor:pointer}
 .ev-dot.blue{background:var(--blue)}
 .ev-body{flex:1;min-width:0}
 .ev-t{font-weight:500;overflow-wrap:anywhere}
+.ev-t.done{text-decoration:line-through;color:var(--text-faint)}
 .ev-m{font-size:12.5px;color:var(--text-dim);white-space:pre-wrap;overflow-wrap:anywhere}
 .ev-acts{display:flex;gap:2px;flex:0 0 auto}
 .ev-acts button{padding:2px 7px;border-radius:4px;font-size:12px;color:var(--text-faint)}
@@ -715,6 +717,17 @@ function normalize(d){
     const dName = ((d.roleNames && d.roleNames.duty) || '').trim() || '당직병';
     d.roles = [ { key:'guard', name:gName }, { key:'duty', name:dName } ];
   }
+  /* v3.1 마이그레이션: guard/duty만 있으면 기본 4개 직책으로 확장 */
+  var defaults = [
+    { key:'officer', name:'간부',       mark:'간' },
+    { key:'civil',   name:'군무원',     mark:'군' },
+    { key:'squad',   name:'당직분대장', mark:'분' },
+  ];
+  defaults.forEach(function(df){
+    if(!d.roles.some(function(r){ return r.key === df.key; })){
+      d.roles.unshift(df);
+    }
+  });
   d.roles = d.roles.filter(r => r && typeof r.key === 'string' && r.key);
   if(!d.roles.length) d.roles = [ { key:'guard', name:'위병조장' } ];
   delete d.roleNames;
@@ -725,6 +738,7 @@ function normalize(d){
     if(['none','daily','weekly','monthly'].indexOf(e.repeat) === -1) e.repeat = 'none';
     if(typeof e.repeatUntil !== 'string') e.repeatUntil = '';
     if(!Array.isArray(e.exceptions)) e.exceptions = [];
+    if(!Array.isArray(e.doneDates)) e.doneDates = [];
   });
   if(!Array.isArray(d.shifts)) d.shifts = [];
   if(!d.templates || typeof d.templates !== 'object') d.templates = {};
@@ -1907,7 +1921,7 @@ function renderCalMonth(){
           (e.time ? '<span>' + esc(e.time) + '</span>' : '<span>종일</span>') +
           (e.role !== 'both' && ROLES[e.role] ? '<span>' + esc(ROLES[e.role].name) + '</span>' : '') +
           (e.memo ? '<span>' + esc(e.memo.length > 30 ? e.memo.slice(0,30) + '…' : e.memo) + '</span>' : '') +
-        '</div></div>';
+        '</div></div></div>';
     });
   }
 
@@ -2022,6 +2036,9 @@ function openDayModal(date){
   if(evs.length){
     body += evs.map(e =>
       '<div class="ev-row">' +
+        '<input type="checkbox" data-act="ev-toggle-done" data-id="' + e.id + '" data-date="' + date + '"' +
+          (Array.isArray(e.doneDates) && e.doneDates.indexOf(date) !== -1 ? ' checked' : '') +
+          ' style="margin-top:6px" title="완료로 표시">' +
         '<span class="ev-dot ' + e.color + '"></span>' +
         '<div class="ev-body">' + eventBodyHTML(e) + '</div>' +
         '<div class="ev-acts">' +
@@ -2500,6 +2517,18 @@ document.addEventListener('click', e => {
       openDayModal(el.dataset.date);
       render();
     },
+    /* 일정을 완료로 표시/해제합니다(줄긋기). 반복 일정이면 그 날짜만 완료로 남습니다. */
+    'ev-toggle-done': () => {
+      const base = getEvent(id);
+      if(!base) return;
+      if(!Array.isArray(base.doneDates)) base.doneDates = [];
+      const date = el.dataset.date;
+      const i = base.doneDates.indexOf(date);
+      if(i === -1) base.doneDates.push(date); else base.doneDates.splice(i,1);
+      saveDB();
+      if($('#modal-root').innerHTML.trim()) openDayModal(date);
+      render();
+    },
     'ev-del-one': () => {
       if(!confirm('이 날짜의 일정만 삭제합니다. 다른 날짜의 반복 일정은 그대로 남습니다.')) return;
       const base = getEvent(id);
@@ -2552,7 +2581,7 @@ document.addEventListener('click', e => {
           if(!Array.isArray(base.exceptions)) base.exceptions = [];
           if(base.exceptions.indexOf(date) === -1) base.exceptions.push(date);
           db.events.push(Object.assign(
-            { id:uid(), date:date, exceptions:[], createdAt:new Date().toISOString() },
+            { id:uid(), date:date, exceptions:[], doneDates:[], createdAt:new Date().toISOString() },
             data, { repeat:'none', repeatUntil:'' }));
           msg = '이 날짜의 일정만 수정했습니다.';
         }else if(base){
@@ -2561,7 +2590,7 @@ document.addEventListener('click', e => {
           msg = '일정을 수정했습니다.';
         }
       }else{
-        db.events.push(Object.assign({ id:uid(), date:date, exceptions:[], createdAt:new Date().toISOString() }, data));
+        db.events.push(Object.assign({ id:uid(), date:date, exceptions:[], doneDates:[], createdAt:new Date().toISOString() }, data));
         msg = '일정을 추가했습니다.';
       }
       if(clash) msg += ' (참고: ' + data.time + '에 \'' + clash.title + '\'와 시간이 겹칩니다)';
