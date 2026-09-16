@@ -522,6 +522,10 @@ function newRoleKey(){ return 'role_' + uid(); }
 function roleBadgeBg(r){
   return (r && r.color && EV_COLORS.indexOf(r.color) !== -1) ? 'var(--' + r.color + ')' : 'var(--accent)';
 }
+/* 직책 색의 옅은 배경(하이라이트용). 배지처럼 진한 색이 아니라 은은한 타일 색입니다. */
+function roleTintBg(r){
+  return (r && r.color && EV_COLORS.indexOf(r.color) !== -1) ? 'var(--' + r.color + '-bg)' : 'var(--accent-soft)';
+}
 
 const PRIORITY = {
   urgent: { key:'urgent', label:'긴급', cls:'red',    rank:0 },
@@ -2595,12 +2599,15 @@ document.addEventListener('click', e => {
     'export-csv': exportCSV,
 
     'switch-role': () => {
-      const body = db.roles.map(r =>
-        '<button class="btn' + (r.key === db.activeRole ? ' primary' : '') + '" data-act="pick-role" data-key="' + r.key + '" ' +
-          'style="width:100%;justify-content:flex-start;gap:8px;margin-bottom:6px">' +
+      const body = db.roles.map(r => {
+        const active = r.key === db.activeRole;
+        return '<button class="btn" data-act="pick-role" data-key="' + r.key + '" ' +
+          'style="width:100%;justify-content:flex-start;gap:8px;margin-bottom:6px' +
+          (active ? ';background:' + roleTintBg(r) + ';border-color:' + roleBadgeBg(r) : '') + '">' +
           '<span class="ws-badge" style="width:22px;height:22px;flex:0 0 22px;font-size:11px;background:' + roleBadgeBg(r) + '">' + esc(r.mark) + '</span>' +
           esc(r.name) +
-        '</button>').join('');
+        '</button>';
+      }).join('');
       openModal('직책 전환', body,
         '<button class="btn" data-act="close-modal">닫기</button>' +
         '<button class="btn" data-act="manage-roles">직책 관리</button>');
