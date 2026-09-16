@@ -505,6 +505,10 @@ function syncRoles(source){
   });
 }
 function newRoleKey(){ return 'role_' + uid(); }
+/* 직책 배지 배경색 — role.color가 유효하면 그 색, 아니면 기본 강조색 */
+function roleBadgeBg(r){
+  return (r && r.color && EV_COLORS.indexOf(r.color) !== -1) ? 'var(--' + r.color + ')' : 'var(--accent)';
+}
 
 const PRIORITY = {
   urgent: { key:'urgent', label:'긴급', cls:'red',    rank:0 },
@@ -664,10 +668,10 @@ function freshDB(){
     unit: '',
     activeRole: 'officer',
     roles: [
-      { key:'officer', name:'간부',       mark:'간' },
-      { key:'civil',   name:'군무원',     mark:'군' },
-      { key:'nco',     name:'당직부사관', mark:'당' },
-      { key:'guard',   name:'위병조장',   mark:'위' },
+      { key:'officer', name:'간부',       mark:'간', color:'blue' },
+      { key:'civil',   name:'군무원',     mark:'군', color:'green' },
+      { key:'nco',     name:'당직부사관', mark:'당', color:'orange' },
+      { key:'guard',   name:'위병조장',   mark:'위', color:'gray' },
     ],
     templates: { officer: [], civil: [], nco: [], guard: [] },
     shifts: [],
@@ -747,6 +751,10 @@ function normalize(d){
   d.roles = d.roles.filter(r => r && typeof r.key === 'string' && r.key);
   if(!d.roles.length) d.roles = [ { key:'guard', name:'위병조장' } ];
   delete d.roleNames;
+  /* 직책 배지 색 — 없거나 잘못된 값이면 색이 겹치지 않도록 순서대로 채워 줍니다 */
+  d.roles.forEach(function(r, i){
+    if(EV_COLORS.indexOf(r.color) === -1) r.color = EV_COLORS[i % EV_COLORS.length];
+  });
   d.events.forEach(e => {
     if(EV_COLORS.indexOf(e.color) === -1) e.color = 'gray';
     if(e.role !== 'both' && !d.roles.some(r => r.key === e.role)) e.role = 'both';
@@ -1176,7 +1184,7 @@ function renderSidebar(){
   $('#sidebar').className = 'sidebar' + (state.sidebarHidden ? ' hidden' : '');
   $('#sidebar').innerHTML =
     '<div class="ws" data-act="switch-role" title="직책 전환">' +
-      '<div class="ws-badge">' + esc(r.mark) + '</div>' +
+      '<div class="ws-badge" style="background:' + roleBadgeBg(r) + '">' + esc(r.mark) + '</div>' +
       '<div class="ws-text">' +
         '<div class="ws-title">' + esc(r.name) + '</div>' +
         '<div class="ws-sub">' + esc(db.unit || '부대명 미설정') + '</div>' +
@@ -1713,9 +1721,14 @@ function viewSettings(){
     '병사(위병조장·당직병)만이 아니라 간부·군무원 등 이 부대에서 근무·일정을 따로 관리할 인원 구분을 ' +
     '자유롭게 추가·삭제·이름 변경할 수 있습니다. 직책마다 서로 다른 점검 항목·지시사항·인계 기록을 가집니다.</div>';
   db.roles.forEach(rr => {
-    h += '<div class="check">' +
-      '<span class="ws-badge" style="width:26px;height:26px;flex:0 0 26px;font-size:12px;margin-top:2px">' + esc(rr.mark) + '</span>' +
-      '<div class="txt"><input class="inline-input" data-in="rolename:' + rr.key + '" value="' + esc(rr.name) + '"></div>' +
+    h += '<div class="check" style="align-items:flex-start">' +
+      '<span class="ws-badge" style="width:26px;height:26px;flex:0 0 26px;font-size:12px;margin-top:2px;background:' + roleBadgeBg(rr) + '">' + esc(rr.mark) + '</span>' +
+      '<div class="txt">' +
+        '<input class="inline-input" data-in="rolename:' + rr.key + '" value="' + esc(rr.name) + '">' +
+        '<div class="sw" style="margin-top:5px">' + EV_COLORS.map(c =>
+          '<button data-act="role-color" data-key="' + rr.key + '" data-val="' + c + '" class="' +
+            (rr.color === c ? 'on' : '') + '" style="width:16px;height:16px" title="배지 색"></button>').join('') + '</div>' +
+      '</div>' +
       (db.roles.length > 1 ? '<button class="del" data-act="del-role" data-key="' + rr.key + '" title="삭제">×</button>' : '') +
     '</div>';
   });
@@ -2442,7 +2455,7 @@ document.addEventListener('click', e => {
       const body = db.roles.map(r =>
         '<button class="btn' + (r.key === db.activeRole ? ' primary' : '') + '" data-act="pick-role" data-key="' + r.key + '" ' +
           'style="width:100%;justify-content:flex-start;gap:8px;margin-bottom:6px">' +
-          '<span class="ws-badge" style="width:22px;height:22px;flex:0 0 22px;font-size:11px">' + esc(r.mark) + '</span>' +
+          '<span class="ws-badge" style="width:22px;height:22px;flex:0 0 22px;font-size:11px;background:' + roleBadgeBg(r) + '">' + esc(r.mark) + '</span>' +
           esc(r.name) +
         '</button>').join('');
       openModal('직책 전환', body,
