@@ -1894,16 +1894,20 @@ function renderCalMonth(){
     h += '<div class="empty">등록된 일정이 없습니다.</div>';
   }else{
     monthEvents.forEach(e => {
-      h += '<div class="row" data-act="cal-day" data-date="' + e.date + '" style="cursor:pointer">' +
+      const done = Array.isArray(e.doneDates) && e.doneDates.indexOf(e.date) !== -1;
+      h += '<div class="row">' +
+        '<input type="checkbox" data-act="ev-toggle-done" data-id="' + e.id + '" data-date="' + e.date + '"' +
+          (done ? ' checked' : '') + ' title="완료로 표시">' +
         '<span class="ev-dot ' + e.color + '" style="margin-top:0"></span>' +
-        '<div class="grow"><div class="ttl">' + esc(e.title) +
+        '<div class="grow" data-act="cal-day" data-date="' + e.date + '" style="cursor:pointer">' +
+          '<div class="ttl' + (done ? ' done' : '') + '">' + esc(e.title) +
           (e.repeat && e.repeat !== 'none' ? ' <span class="tiny faint">· ' + REPEAT_LABEL[e.repeat] + '</span>' : '') +
         '</div>' +
           '<div class="card-meta"><span>' + esc(fmtDate(e.date)) + '</span>' +
           (e.time ? '<span>' + esc(e.time) + '</span>' : '<span>종일</span>') +
           (e.role !== 'both' && ROLES[e.role] ? '<span>' + esc(ROLES[e.role].name) + '</span>' : '') +
           (e.memo ? '<span>' + esc(e.memo.length > 30 ? e.memo.slice(0,30) + '…' : e.memo) + '</span>' : '') +
-        '</div></div></div>';
+        '</div></div>';
     });
   }
 
@@ -1992,15 +1996,22 @@ function renderCalDay(){
 const REPEAT_LABEL = { none:'반복 없음', daily:'매일', weekly:'매주', monthly:'매월' };
 /* 일정 한 줄의 본문(제목·메모·직책·반복 표시)만 만듭니다. 하루 목록/주간·일간 보기에서 함께 씁니다. */
 function eventBodyHTML(e){
-  return '<div class="ev-t">' + (e.time ? '<span class="faint mono">' + esc(e.time) + '</span> ' : '') + esc(e.title) +
+  const done = Array.isArray(e.doneDates) && e.doneDates.indexOf(e.date) !== -1;
+  return '<div class="ev-t' + (done ? ' done' : '') + '">' + (e.time ? '<span class="faint mono">' + esc(e.time) + '</span> ' : '') + esc(e.title) +
       (e.repeat && e.repeat !== 'none' ? '<span class="tiny faint"> · ' + REPEAT_LABEL[e.repeat] + ' 반복</span>' : '') +
     '</div>' +
     (e.memo ? '<div class="ev-m">' + esc(e.memo) + '</div>' : '') +
     (e.role !== 'both' && ROLES[e.role] ? '<div class="tiny faint">' + esc(ROLES[e.role].name) + ' 전용</div>' : '');
 }
-/* 주간/일간 보기에서 쓰는, 수정·삭제 없이 보기만 하는 한 줄 */
+/* 주간/일간 보기에서 쓰는 한 줄. 체크박스를 누르면 완료로 표시(줄긋기)되고, 나머지를 누르면 그 날짜의 일정 창이 열립니다. */
 function eventRowHTML(e){
-  return '<div class="ev-row"><span class="ev-dot ' + e.color + '"></span><div class="ev-body">' + eventBodyHTML(e) + '</div></div>';
+  const done = Array.isArray(e.doneDates) && e.doneDates.indexOf(e.date) !== -1;
+  return '<div class="ev-row">' +
+    '<input type="checkbox" data-act="ev-toggle-done" data-id="' + e.id + '" data-date="' + e.date + '"' +
+      (done ? ' checked' : '') + ' style="margin-top:6px" title="완료로 표시">' +
+    '<span class="ev-dot ' + e.color + '"></span>' +
+    '<div class="ev-body" data-act="cal-day" data-date="' + e.date + '" style="cursor:pointer">' + eventBodyHTML(e) + '</div>' +
+  '</div>';
 }
 function openDayModal(date){
   const evs = eventsOn(date);
