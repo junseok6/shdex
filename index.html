@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>근무 인수인계</title>
+<title>근무 인수인계 · 일정관리</title>
 <style>
 /* ===== 색상 토큰 ===== */
 :root{
@@ -465,34 +465,31 @@ ul.plain li b{font-weight:600}
 <script>
 "use strict";
 /* ============================================================
-   근무 인수인계 프로그램 (위병조장 / 당직병)
+   근무 인수인계 · 일정관리 프로그램
+   - 병사(위병조장/당직병)뿐 아니라 간부·군무원 등 누구나 직책을 추가해 쓸 수 있습니다.
    - 완전 로컬 실행: 브라우저 localStorage에만 저장됩니다.
    - 외부 통신 없음. 파일 하나로 동작합니다.
    ============================================================ */
 
 /* ---------- 상수 ---------- */
-const APP_VERSION = '2.0';          /* 화면 하단에 표시됩니다. 갱신 여부 확인용 */
+const APP_VERSION = '3.0';          /* 화면 하단에 표시됩니다. 갱신 여부 확인용 */
 const APP_DATE = '2026-09-16';
 const DB_KEY = 'shdex.handover.v1';
 const THEME_KEY = 'shdex.theme';
 
-const ROLE_DEFAULTS = {
-  guard: '위병조장',
-  duty:  '당직병',
-};
-const ROLES = {
-  guard: { key:'guard', name:ROLE_DEFAULTS.guard, mark:ROLE_DEFAULTS.guard.slice(0,1) },
-  duty:  { key:'duty',  name:ROLE_DEFAULTS.duty,  mark:ROLE_DEFAULTS.duty.slice(0,1) },
-};
-/* 직책 이름은 설정에서 직접 입력할 수 있습니다. 저장된 이름을 ROLES에 반영합니다. */
-function applyRoleNames(){
-  ['guard','duty'].forEach(k => {
-    const custom = (db.roleNames && db.roleNames[k] || '').trim();
-    const name = custom || ROLE_DEFAULTS[k];
-    ROLES[k].name = name;
-    ROLES[k].mark = name.slice(0,1);
+/* 직책은 병사(위병조장/당직병)만이 아니라 간부·군무원 등 필요한 만큼 자유롭게 추가·삭제합니다.
+   목록의 실체는 db.roles 배열이고, ROLES는 키로 바로 찾아 쓰기 위한 조회용 사본입니다. */
+let ROLES = {};
+function syncRoles(source){
+  const src = source || db;
+  ROLES = {};
+  src.roles.forEach(r => {
+    if(typeof r.name !== 'string' || !r.name.trim()) r.name = '직책';
+    r.mark = r.name.trim().slice(0,1);
+    ROLES[r.key] = r;
   });
 }
+function newRoleKey(){ return 'role_' + uid(); }
 
 const PRIORITY = {
   urgent: { key:'urgent', label:'긴급', cls:'red',    rank:0 },
@@ -651,7 +648,10 @@ function freshDB(){
     version: 1,
     unit: '',
     activeRole: 'guard',
-    roleNames: { guard: '', duty: '' },   /* 비워 두면 기본 이름(위병조장/당직병)을 씁니다 */
+    roles: [
+      { key:'guard', name:'위병조장', mark:'위' },
+      { key:'duty',  name:'당직병',   mark:'당' },
+    ],
     templates: { guard: [], duty: [] },   /* 점검 항목은 설정에서 직접 등록합니다 */
     shifts: [],                           /* 근무 구분도 설정에서 직접 등록합니다 */
     orders: [],
@@ -659,6 +659,7 @@ function freshDB(){
     events: [],
     todos: [],
     lastNames: { guard:'', duty:'' },
+    notify: false,                        /* 브라우저 알림 사용 여부 */
     createdAt: new Date().toISOString(),
   };
 }
@@ -667,17 +668,19 @@ let db;
 function loadDB(){
   try{
     const raw = localStorage.getItem(DB_KEY);
-    if(!raw) return freshDB();
+    if(!raw) return normalize(freshDB());
     const parsed = JSON.parse(raw);
     const base = freshDB();
     return normalize(Object.assign(base, parsed, {
       templates: Object.assign(base.templates, parsed.templates || {}),
       lastNames: Object.assign(base.lastNames, parsed.lastNames || {}),
-      roleNames: Object.assign(base.roleNames, parsed.roleNames || {}),
+      /* 예전 저장 파일에는 roles가 없으므로, base의 기본값이 그걸 가리지 않게 명시적으로 비웁니다.
+         normalize()가 roleNames(더 예전 형식) 또는 기본값으로부터 직접 만들어 줍니다. */
+      roles: (Array.isArray(parsed.roles) && parsed.roles.length) ? parsed.roles : null,
     }));
   }catch(e){
     console.error('저장 데이터를 읽지 못했습니다.', e);
-    return freshDB();
+    return normalize(freshDB());
   }
 }
 /* 백업 파일이나 예전 버전에서 빠진 값을 채워, 화면이 깨지지 않게 합니다. */
@@ -690,14 +693,31 @@ function normalize(d){
     ['date','text'].forEach(k => { if(typeof t[k] !== 'string') t[k] = ''; });
     if(typeof t.done !== 'boolean') t.done = false;
   });
+  /* 직책 목록: 새 형식(d.roles)이 없으면 예전 형식(d.roleNames, 그마저 없으면 기본값)에서 만듭니다. */
+  if(!Array.isArray(d.roles) || !d.roles.length){
+    const gName = ((d.roleNames && d.roleNames.guard) || '').trim() || '위병조장';
+    const dName = ((d.roleNames && d.roleNames.duty) || '').trim() || '당직병';
+    d.roles = [ { key:'guard', name:gName }, { key:'duty', name:dName } ];
+  }
+  d.roles = d.roles.filter(r => r && typeof r.key === 'string' && r.key);
+  if(!d.roles.length) d.roles = [ { key:'guard', name:'위병조장' } ];
+  delete d.roleNames;
   d.events.forEach(e => {
     if(EV_COLORS.indexOf(e.color) === -1) e.color = 'gray';
-    if(['both','guard','duty'].indexOf(e.role) === -1) e.role = 'both';
+    if(e.role !== 'both' && !d.roles.some(r => r.key === e.role)) e.role = 'both';
     ['date','time','title','memo'].forEach(k => { if(typeof e[k] !== 'string') e[k] = ''; });
+    if(['none','daily','weekly','monthly'].indexOf(e.repeat) === -1) e.repeat = 'none';
+    if(typeof e.repeatUntil !== 'string') e.repeatUntil = '';
+    if(!Array.isArray(e.exceptions)) e.exceptions = [];
   });
   if(!Array.isArray(d.shifts)) d.shifts = [];
-  if(!d.templates || typeof d.templates !== 'object') d.templates = { guard:[], duty:[] };
-  ['guard','duty'].forEach(k => { if(!Array.isArray(d.templates[k])) d.templates[k] = []; });
+  if(!d.templates || typeof d.templates !== 'object') d.templates = {};
+  if(!d.lastNames || typeof d.lastNames !== 'object') d.lastNames = {};
+  d.roles.forEach(r => {
+    if(!Array.isArray(d.templates[r.key])) d.templates[r.key] = [];
+    if(typeof d.lastNames[r.key] !== 'string') d.lastNames[r.key] = '';
+  });
+  if(typeof d.notify !== 'boolean') d.notify = false;
   d.orders.forEach(o => {
     o.relayCount = o.relayCount || 0;
     o.priority = PRIORITY[o.priority] ? o.priority : 'normal';
@@ -711,9 +731,8 @@ function normalize(d){
     s.status = SHEET_STATUS[s.status] ? s.status : 'draft';
     ['outName','inName','notes','keyMessage','shift','date'].forEach(k => { if(typeof s[k] !== 'string') s[k] = ''; });
   });
-  if(!ROLES[d.activeRole]) d.activeRole = 'guard';
-  if(!d.roleNames || typeof d.roleNames !== 'object') d.roleNames = { guard:'', duty:'' };
-  ['guard','duty'].forEach(k => { if(typeof d.roleNames[k] !== 'string') d.roleNames[k] = ''; });
+  if(!d.roles.some(r => r.key === d.activeRole)) d.activeRole = d.roles[0].key;
+  syncRoles(d);
   return d;
 }
 
@@ -805,8 +824,11 @@ const state = {
   orderFilter: 'open', // open | all | done
   recordQuery: '',
   sidebarHidden: false,
-  calMonth: todayISO().slice(0,7),   /* 달력에서 보고 있는 달 */
-  evDraft: { color:'blue', role:'both', editId:null },
+  calMonth: todayISO().slice(0,7),   /* 달력(월간)에서 보고 있는 달 */
+  calMode: 'month',                  // month | week | day
+  calDate: todayISO(),               /* 달력(주간/일간)에서 보고 있는 날짜 */
+  calRoleFilter: 'all',              /* 달력에서 특정 직책 일정만 볼 때 */
+  evDraft: { color:'blue', role:'both', editId:null, scope:'series' },
 };
 
 function isNarrow(){ return window.innerWidth <= 820; }
@@ -821,7 +843,16 @@ function go(view, opts){
 }
 
 /* ---------- 데이터 조회 ---------- */
-function role(){ return ROLES[db.activeRole] || ROLES.guard; }
+function role(){ return ROLES[db.activeRole] || db.roles[0]; }
+/* 직책 <select> 옵션 HTML. allLabel을 주면 맨 앞에 '공통(전체)' 옵션이 붙습니다. */
+function roleOptionsHTML(selected, allLabel){
+  let h = '';
+  if(allLabel) h += '<option value="both"' + (selected === 'both' ? ' selected' : '') + '>' + esc(allLabel) + '</option>';
+  db.roles.forEach(r => {
+    h += '<option value="' + r.key + '"' + (selected === r.key ? ' selected' : '') + '>' + esc(r.name) + '</option>';
+  });
+  return h;
+}
 function ordersFor(roleKey){
   return db.orders.filter(o => o.role === roleKey || o.role === 'both');
 }
@@ -846,14 +877,41 @@ function draftSheet(roleKey){
   return db.sheets.find(s => s.role === roleKey && s.status === 'draft');
 }
 /* 일정은 직책과 무관하게 하나의 달력에 모두 표시하고, 해당 근무만 꼬리표로 구분합니다. */
+/* 반복 일정 — event.date를 시작일(기준일)로 삼아 매일/매주/매월 반복되는지 판단합니다. */
+function occursOn(e, date){
+  if(date < e.date) return false;
+  if(e.exceptions && e.exceptions.indexOf(date) !== -1) return false;
+  if(e.repeat === 'none' || !e.repeat) return date === e.date;
+  if(e.repeatUntil && date > e.repeatUntil) return false;
+  if(e.repeat === 'daily') return true;
+  if(e.repeat === 'weekly') return daysBetweenISO(e.date, date) % 7 === 0;
+  if(e.repeat === 'monthly'){
+    return new Date(e.date + 'T00:00:00').getDate() === new Date(date + 'T00:00:00').getDate();
+  }
+  return false;
+}
+/* [from,to] 구간에서 실제로 발생하는 일정을 날짜별로 펼칩니다. 반복 일정은 그 구간 안의 발생일마다 하나씩 만듭니다. */
+function expandEvents(from, to){
+  const out = [];
+  db.events.forEach(e => {
+    if(!e.repeat || e.repeat === 'none'){
+      if(e.date >= from && e.date <= to && occursOn(e, e.date)) out.push(e);
+      return;
+    }
+    let d = e.date > from ? e.date : from;
+    const until = e.repeatUntil && e.repeatUntil < to ? e.repeatUntil : to;
+    while(d <= until){
+      if(occursOn(e, d)) out.push(Object.assign({}, e, { date:d }));
+      d = addDays(d, 1);
+    }
+  });
+  return out;
+}
 function eventsOn(date){
-  return db.events
-    .filter(e => e.date === date)
-    .sort((a,b) => (a.time || '99:99') < (b.time || '99:99') ? -1 : 1);
+  return expandEvents(date, date).sort((a,b) => (a.time || '99:99') < (b.time || '99:99') ? -1 : 1);
 }
 function eventsBetween(from, to){
-  return db.events
-    .filter(e => e.date >= from && e.date <= to)
+  return expandEvents(from, to)
     .sort((a,b) => (a.date + (a.time || '99:99')) < (b.date + (b.time || '99:99')) ? -1 : 1);
 }
 function getEvent(id){ return db.events.find(e => e.id === id); }
@@ -966,6 +1024,31 @@ function toggleTheme(){
   const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   applyTheme(cur);
   render();
+}
+
+/* ---------- 알림 ---------- */
+/* 이 탭이 열려 있는 동안, 시간이 정해진 오늘 일정이 5분 이내로 다가오면 한 번씩 알립니다.
+   탭을 닫으면 동작하지 않는 한계가 있어, 설정 화면에도 이 사실을 안내해 둡니다. */
+const _notified = new Set();
+function checkNotifications(){
+  if(!db.notify || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  eventsOn(todayISO()).forEach(e => {
+    if(!e.time) return;
+    const key = e.id + '@' + e.date + '@' + e.time;
+    if(_notified.has(key)) return;
+    const parts = e.time.split(':').map(Number);
+    const evMinutes = parts[0] * 60 + parts[1];
+    if(evMinutes - nowMinutes <= 5 && evMinutes - nowMinutes >= -1){
+      _notified.add(key);
+      try{
+        new Notification(role().name + ' 일정 알림', {
+          body: e.time + ' ' + e.title + (e.memo ? ' · ' + e.memo : ''),
+        });
+      }catch(err){ /* 알림 생성에 실패해도 화면 동작에는 영향이 없어야 합니다 */ }
+    }
+  });
 }
 
 /* ---------- 모달 ---------- */
@@ -1160,7 +1243,7 @@ function viewHome(){
           '<div class="card-meta"><span>' +
             (e.date === todayISO() ? '오늘' : (e.date === addDays(todayISO(),1) ? '내일' : esc(fmtDate(e.date)))) +
           '</span>' + (e.time ? '<span>' + esc(e.time) + '</span>' : '<span>종일</span>') +
-          (e.role !== 'both' ? '<span>' + esc(ROLES[e.role].name) + '</span>' : '') +
+          (e.role !== 'both' && ROLES[e.role] ? '<span>' + esc(ROLES[e.role].name) + '</span>' : '') +
         '</div></div></div>';
     });
     if(upcoming.length > 6){
@@ -1226,7 +1309,7 @@ function sheetRow(s){
 function viewSheet(){
   const s = getSheet(state.sheetId);
   if(!s) return '<div class="page"><div class="empty">인계서를 찾을 수 없습니다.</div></div>';
-  const r = ROLES[s.role];
+  const r = ROLES[s.role] || { name:'(삭제된 직책)', mark:'?' };
   const editable = s.status !== 'confirmed';
   const st = SHEET_STATUS[s.status] || SHEET_STATUS.draft;
   const checked = s.checks.filter(c => c.ok).length;
@@ -1459,7 +1542,7 @@ function viewOrder(){
 
   h += '<div class="sheet-head"><div class="kv">' +
     '<div class="k">지시한 사람</div><div>' + esc(o.from || '-') + '</div>' +
-    '<div class="k">대상 직책</div><div>' + (o.role === 'both' ? esc(ROLES.guard.name) + ' · ' + esc(ROLES.duty.name) + ' 공통' : esc(ROLES[o.role] ? ROLES[o.role].name : o.role)) + '</div>' +
+    '<div class="k">대상 직책</div><div>' + (o.role === 'both' ? '공통 (전체 직책)' : esc(ROLES[o.role] ? ROLES[o.role].name : '(삭제된 직책)')) + '</div>' +
     '<div class="k">기한</div><div' + (late ? ' style="color:var(--red);font-weight:600"' : '') + '>' +
       (o.due ? esc(fmtDate(o.due)) + (late ? ' · 경과' : '') : '없음') + '</div>' +
   '</div></div>';
@@ -1543,14 +1626,20 @@ function viewSettings(){
   h += '<h2 class="sec">부대 정보</h2>';
   h += f('부대 / 소속 표기', '<input type="text" data-in="db:unit" placeholder="예) ○○사단 ○○연대 1대대" value="' + esc(db.unit) + '">');
 
-  h += '<h2 class="sec">직책 이름</h2>';
+  h += '<h2 class="sec">직책 관리</h2>';
   h += '<div class="small muted" style="margin-bottom:8px">' +
-    '기본값은 <b>위병조장 / 당직병</b>입니다. 다른 이름을 쓰는 부대라면 직접 입력해 바꾸십시오. ' +
-    '좌측 상단 이름을 눌러 전환하는 두 직책 각각에 적용됩니다.</div>' +
-    '<div class="grid g2">' +
-      f('직책 1 이름', '<input type="text" data-in="rolename:guard" placeholder="' + esc(ROLE_DEFAULTS.guard) + '" value="' + esc(db.roleNames.guard) + '">') +
-      f('직책 2 이름', '<input type="text" data-in="rolename:duty" placeholder="' + esc(ROLE_DEFAULTS.duty) + '" value="' + esc(db.roleNames.duty) + '">') +
+    '병사(위병조장·당직병)만이 아니라 간부·군무원 등 이 부대에서 근무·일정을 따로 관리할 인원 구분을 ' +
+    '자유롭게 추가·삭제·이름 변경할 수 있습니다. 직책마다 서로 다른 점검 항목·지시사항·인계 기록을 가집니다.</div>';
+  db.roles.forEach(rr => {
+    h += '<div class="check">' +
+      '<span class="ws-badge" style="width:26px;height:26px;flex:0 0 26px;font-size:12px;margin-top:2px">' + esc(rr.mark) + '</span>' +
+      '<div class="txt"><input class="inline-input" data-in="rolename:' + rr.key + '" value="' + esc(rr.name) + '"></div>' +
+      (db.roles.length > 1 ? '<button class="del" data-act="del-role" data-key="' + rr.key + '" title="삭제">×</button>' : '') +
     '</div>';
+  });
+  h += '<div class="btn-row" style="margin-top:8px">' +
+    '<input type="text" id="new-role" placeholder="예) 상황실 간부, 군무원 당직 등" style="max-width:280px">' +
+    '<button class="btn sm" data-act="add-role">직책 추가</button></div>';
 
   h += '<h2 class="sec">근무 구분</h2>';
   h += '<div class="small muted" style="margin-bottom:8px">' +
@@ -1578,6 +1667,19 @@ function viewSettings(){
     '<button class="btn sm" data-act="add-tpl">추가</button>' +
     (tpl.length ? '<button class="btn sm ghost" data-act="clear-tpl">전체 비우기</button>' : '') + '</div>';
 
+  h += '<h2 class="sec">알림</h2>';
+  h += '<div class="small muted" style="margin-bottom:8px">' +
+    '이 프로그램을 열어 둔 브라우저 탭에서, 시간이 정해진 오늘 일정이 다가오면 브라우저 알림을 띄웁니다. ' +
+    '탭을 닫거나 컴퓨터를 끄면 알림도 울리지 않으니, 중요한 일정은 그래도 직접 확인하십시오.</div>';
+  h += '<div class="btn-row">' +
+    '<button class="btn' + (db.notify ? ' primary' : '') + '" data-act="toggle-notify">' +
+      (db.notify ? '알림 사용 중 (끄려면 클릭)' : '브라우저 알림 켜기') + '</button>' +
+  '</div>';
+  if(db.notify && typeof Notification !== 'undefined' && Notification.permission === 'denied'){
+    h += '<div class="callout warn small" style="margin-top:8px">' +
+      '브라우저에서 알림 권한이 차단되어 있습니다. 주소창 옆 자물쇠(또는 사이트 정보) 아이콘에서 알림 권한을 허용하십시오.</div>';
+  }
+
   h += '<h2 class="sec">데이터</h2>';
   h += '<div class="callout warn small">' +
     '데이터는 이 브라우저에만 저장됩니다. 브라우저 기록을 삭제하면 함께 지워지므로, ' +
@@ -1604,7 +1706,64 @@ function viewSettings(){
 }
 
 /* ---------- 달력 ---------- */
+/* 달력에서 '전체 일정' 대신 특정 직책 일정만 보고 싶을 때 씁니다. 하루/인계서 화면 등에는 영향이 없습니다. */
+function calFilter(list){
+  if(state.calRoleFilter === 'all') return list;
+  return list.filter(e => e.role === 'both' || e.role === state.calRoleFilter);
+}
+function weekStartOf(iso){
+  return addDays(iso, -(new Date(iso + 'T00:00:00').getDay()));
+}
+function calRoleFilterHTML(){
+  return '<select id="cal-role-filter" style="width:auto;max-width:170px">' +
+    '<option value="all"' + (state.calRoleFilter === 'all' ? ' selected' : '') + '>전체 직책 일정</option>' +
+    db.roles.map(r => '<option value="' + r.key + '"' + (state.calRoleFilter === r.key ? ' selected' : '') +
+      '>' + esc(r.name) + ' 일정</option>').join('') +
+  '</select>';
+}
 function viewCalendar(){
+  let navTitle = '', addDate = todayISO();
+  if(state.calMode === 'month'){
+    const y = parseInt(state.calMonth.slice(0,4),10), m = parseInt(state.calMonth.slice(5,7),10);
+    navTitle = y + '년 ' + m + '월';
+    addDate = state.calMonth === todayISO().slice(0,7) ? todayISO() : state.calMonth + '-01';
+  }else if(state.calMode === 'week'){
+    const start = weekStartOf(state.calDate);
+    navTitle = fmtDate(start).replace(/\s*\([^)]+\)/, '') + ' – ' + fmtDate(addDays(start,6)).replace(/\s*\([^)]+\)/, '');
+    addDate = state.calDate;
+  }else{
+    navTitle = fmtDateFull(state.calDate);
+    addDate = state.calDate;
+  }
+
+  let h = '<div class="page wide">';
+  h += '<div class="page-title">달력</div>';
+  h += '<div class="page-desc">훈련·검열·면회·정비 등 근무와 관련된 일정을 적어 둡니다. ' +
+       '날짜를 누르면 일정·할 일을 넣을 수 있고, 매주·매월 반복되는 일정도 등록할 수 있습니다.</div>';
+
+  h += '<div class="cal-head no-print">' +
+    '<div class="seg">' + [['month','월간'],['week','주간'],['day','일간']].map(([k,l]) =>
+      '<button class="' + (state.calMode === k ? 'on' : '') + '" data-act="cal-mode" data-val="' + k + '">' + l + '</button>').join('') + '</div>' +
+    '<button class="btn sm" data-act="cal-move" data-val="-1">이전</button>' +
+    '<div class="cal-title">' + esc(navTitle) + '</div>' +
+    '<button class="btn sm" data-act="cal-move" data-val="1">다음</button>' +
+    '<button class="btn sm ghost" data-act="cal-today">오늘</button>' +
+    '<div class="spacer"></div>' +
+    (db.roles.length > 1 ? calRoleFilterHTML() : '') +
+    '<button class="btn sm primary" data-act="cal-day" data-date="' + addDate + '">일정 추가</button>' +
+  '</div>';
+  h += '<div class="cal-title" style="display:none;text-align:left;margin-bottom:10px" ' +
+       'id="cal-print-title">' + esc(navTitle) + '</div>';
+
+  if(state.calMode === 'week') h += renderCalWeek();
+  else if(state.calMode === 'day') h += renderCalDay();
+  else h += renderCalMonth();
+
+  h += '</div>';
+  return h;
+}
+
+function renderCalMonth(){
   const key = state.calMonth;
   const y = parseInt(key.slice(0,4),10), m = parseInt(key.slice(5,7),10);
   const first = new Date(y, m-1, 1);
@@ -1613,26 +1772,7 @@ function viewCalendar(){
   const weeks = Math.ceil((lead + total) / 7);
   const today = todayISO();
   const holMap = getHolidayMap(y);
-  /* 달이 넘어가는 셀을 위해 인접 연도 공휴일도 준비 */
-  const holMapPrev = (m === 1) ? getHolidayMap(y-1) : holMap;
-  const holMapNext = (m === 12) ? getHolidayMap(y+1) : holMap;
-
-  let h = '<div class="page wide">';
-  h += '<div class="page-title">달력</div>';
-  h += '<div class="page-desc">훈련·검열·면회·정비 등 근무와 관련된 일정을 적어 둡니다. ' +
-       '날짜를 누르면 일정·할 일을 넣을 수 있습니다.</div>';
-
-  h += '<div class="cal-head no-print">' +
-    '<button class="btn sm" data-act="cal-move" data-val="-1">이전</button>' +
-    '<div class="cal-title">' + y + '년 ' + m + '월</div>' +
-    '<button class="btn sm" data-act="cal-move" data-val="1">다음</button>' +
-    '<button class="btn sm ghost" data-act="cal-today">오늘</button>' +
-    '<div class="spacer"></div>' +
-    '<button class="btn sm primary" data-act="cal-day" data-date="' +
-      (key === today.slice(0,7) ? today : key + '-01') + '">일정 추가</button>' +
-  '</div>';
-  h += '<div class="cal-title" style="display:none;text-align:left;margin-bottom:10px" ' +
-       'id="cal-print-title">' + y + '년 ' + m + '월</div>';
+  let h = '';
 
   h += '<div class="cal-grid"><div class="cal-wd">' +
     WEEKDAY.map((w,i) => '<div class="' + (i===0?'sun':(i===6?'sat':'')) + '">' + w + '</div>').join('') +
@@ -1643,7 +1783,7 @@ function viewCalendar(){
     const date = addDays(start, i);
     const dow = i % 7;
     const inMonth = date.slice(0,7) === key;
-    const evs = eventsOn(date);
+    const evs = calFilter(eventsOn(date));
     const tds = todosOn(date);
     const dateY = parseInt(date.slice(0,4),10);
     const hol = getHolidayMap(dateY)[date] || null;
@@ -1681,7 +1821,7 @@ function viewCalendar(){
   h += '</div></div>';
 
   /* 이 달의 일정을 목록으로도 보여 줍니다 */
-  const monthEvents = eventsBetween(key + '-01', key + '-' + String(total).padStart(2,'0'));
+  const monthEvents = calFilter(eventsBetween(key + '-01', key + '-' + String(total).padStart(2,'0')));
   h += '<h2 class="sec">' + m + '월 일정 ' + (monthEvents.length ? monthEvents.length + '건' : '') + '</h2>';
   if(!monthEvents.length){
     h += '<div class="empty">등록된 일정이 없습니다.</div>';
@@ -1689,10 +1829,12 @@ function viewCalendar(){
     monthEvents.forEach(e => {
       h += '<div class="row" data-act="cal-day" data-date="' + e.date + '" style="cursor:pointer">' +
         '<span class="ev-dot ' + e.color + '" style="margin-top:0"></span>' +
-        '<div class="grow"><div class="ttl">' + esc(e.title) + '</div>' +
+        '<div class="grow"><div class="ttl">' + esc(e.title) +
+          (e.repeat && e.repeat !== 'none' ? ' <span class="tiny faint">· ' + REPEAT_LABEL[e.repeat] + '</span>' : '') +
+        '</div>' +
           '<div class="card-meta"><span>' + esc(fmtDate(e.date)) + '</span>' +
           (e.time ? '<span>' + esc(e.time) + '</span>' : '<span>종일</span>') +
-          (e.role !== 'both' ? '<span>' + esc(ROLES[e.role].name) + '</span>' : '') +
+          (e.role !== 'both' && ROLES[e.role] ? '<span>' + esc(ROLES[e.role].name) + '</span>' : '') +
           (e.memo ? '<span>' + esc(e.memo.length > 30 ? e.memo.slice(0,30) + '…' : e.memo) + '</span>' : '') +
         '</div></div></div>';
     });
@@ -1714,12 +1856,85 @@ function viewCalendar(){
         '<span>음력 ' + esc(lunarLabel(ho.date)) + '</span></div></div></div>';
     });
   }
+  return h;
+}
 
+/* 주간 보기 — 요일마다 그날의 일정·할 일을 목록으로 보여줍니다. 실제 수정은 날짜를 눌러 하루 창에서 합니다. */
+function renderCalWeek(){
+  const start = weekStartOf(state.calDate);
+  const today = todayISO();
+  let h = '';
+  for(let i = 0; i < 7; i++){
+    const date = addDays(start, i);
+    const evs = calFilter(eventsOn(date));
+    const tds = todosOn(date);
+    const hol = holidayName(date);
+    h += '<div class="card click" data-act="cal-day" data-date="' + date + '" style="margin-bottom:8px' +
+      (date === today ? ';border-color:var(--accent)' : '') + '">';
+    h += '<div class="card-row" style="align-items:center;margin-bottom:6px;gap:8px">' +
+      '<b' + (date === today ? ' style="color:var(--accent)"' : '') + '>' + esc(fmtDate(date)) + '</b>' +
+      (date === today ? '<span class="tag blue">오늘</span>' : '') +
+      (hol ? '<span class="tag red">' + esc(hol) + '</span>' : '') +
+      '<span class="tiny faint">음력 ' + esc(lunarLabel(date)) + '</span>' +
+    '</div>';
+    if(!evs.length && !tds.length){
+      h += '<div class="small faint">일정 없음</div>';
+    }else{
+      evs.forEach(e => { h += eventRowHTML(e); });
+      tds.forEach(t => {
+        h += '<div class="cal-todo' + (t.done ? ' done' : '') + '" style="font-size:12.5px;padding:2px 0">' +
+          (t.done ? '✓ ' : '○ ') + esc(t.text) + '</div>';
+      });
+    }
+    h += '</div>';
+  }
+  return h;
+}
+
+/* 일간 보기 — 하루치 일정·할 일을 크게 펼쳐 보여줍니다. */
+function renderCalDay(){
+  const date = state.calDate;
+  const today = todayISO();
+  const evs = calFilter(eventsOn(date));
+  const tds = todosOn(date);
+  const hol = holidayName(date);
+  let h = '';
+  h += '<div class="btn-row" style="margin-bottom:12px">' +
+    (date === today ? '<span class="tag blue">오늘</span>' : '') +
+    (hol ? '<span class="tag red">' + esc(hol) + '</span>' : '') +
+    '<span class="tiny faint">음력 ' + esc(lunarLabel(date)) + '</span>' +
+  '</div>';
+  h += '<div class="card" style="padding:4px 14px">';
+  if(!evs.length) h += '<div class="empty small">등록된 일정이 없습니다.</div>';
+  else evs.forEach(e => { h += eventRowHTML(e); });
   h += '</div>';
+  if(tds.length){
+    h += '<h3 class="sub">할 일</h3><div class="card" style="padding:2px 14px">';
+    tds.forEach(t => {
+      h += '<div class="cal-todo' + (t.done ? ' done' : '') + '" style="padding:6px 0">' +
+        (t.done ? '✓ ' : '○ ') + esc(t.text) + '</div>';
+    });
+    h += '</div>';
+  }
+  h += '<div class="btn-row" style="margin-top:14px">' +
+    '<button class="btn primary sm" data-act="cal-day" data-date="' + date + '">일정·할 일 추가/수정</button></div>';
   return h;
 }
 
 /* 하루 일정 창 — 목록과 입력을 한 화면에 둡니다. */
+const REPEAT_LABEL = { none:'반복 없음', daily:'매일', weekly:'매주', monthly:'매월' };
+/* 일정 한 줄의 본문(제목·메모·직책·반복 표시)만 만듭니다. 하루 목록/주간·일간 보기에서 함께 씁니다. */
+function eventBodyHTML(e){
+  return '<div class="ev-t">' + (e.time ? '<span class="faint mono">' + esc(e.time) + '</span> ' : '') + esc(e.title) +
+      (e.repeat && e.repeat !== 'none' ? '<span class="tiny faint"> · ' + REPEAT_LABEL[e.repeat] + ' 반복</span>' : '') +
+    '</div>' +
+    (e.memo ? '<div class="ev-m">' + esc(e.memo) + '</div>' : '') +
+    (e.role !== 'both' && ROLES[e.role] ? '<div class="tiny faint">' + esc(ROLES[e.role].name) + ' 전용</div>' : '');
+}
+/* 주간/일간 보기에서 쓰는, 수정·삭제 없이 보기만 하는 한 줄 */
+function eventRowHTML(e){
+  return '<div class="ev-row"><span class="ev-dot ' + e.color + '"></span><div class="ev-body">' + eventBodyHTML(e) + '</div></div>';
+}
 function openDayModal(date){
   const evs = eventsOn(date);
   const d = state.evDraft;
@@ -1730,14 +1945,13 @@ function openDayModal(date){
     body += evs.map(e =>
       '<div class="ev-row">' +
         '<span class="ev-dot ' + e.color + '"></span>' +
-        '<div class="ev-body">' +
-          '<div class="ev-t">' + (e.time ? '<span class="faint mono">' + esc(e.time) + '</span> ' : '') + esc(e.title) + '</div>' +
-          (e.memo ? '<div class="ev-m">' + esc(e.memo) + '</div>' : '') +
-          (e.role !== 'both' ? '<div class="tiny faint">' + esc(ROLES[e.role].name) + ' 전용</div>' : '') +
-        '</div>' +
+        '<div class="ev-body">' + eventBodyHTML(e) + '</div>' +
         '<div class="ev-acts">' +
           '<button data-act="ev-edit" data-id="' + e.id + '" data-date="' + date + '">수정</button>' +
-          '<button data-act="ev-del" data-id="' + e.id + '" data-date="' + date + '">삭제</button>' +
+          (e.repeat && e.repeat !== 'none'
+            ? '<button data-act="ev-del-one" data-id="' + e.id + '" data-date="' + date + '">이 날짜만 삭제</button>' +
+              '<button data-act="ev-del" data-id="' + e.id + '" data-date="' + date + '">전체 삭제</button>'
+            : '<button data-act="ev-del" data-id="' + e.id + '" data-date="' + date + '">삭제</button>') +
         '</div>' +
       '</div>').join('');
   }else{
@@ -1778,16 +1992,24 @@ function openDayModal(date){
   body += '<div style="font-size:13px;font-weight:600;color:var(--text-dim);margin-bottom:6px">일정 등록</div>';
   body += '<div class="grid g2" style="gap:0 10px">' +
       f('시간 (비우면 종일)', '<input type="time" id="ev-time" value="' + esc(editing ? editing.time : '') + '">') +
-      f('해당 근무', '<select id="ev-role">' +
-        '<option value="both"' + (d.role === 'both' ? ' selected' : '') + '>구분 없음</option>' +
-        '<option value="guard"' + (d.role === 'guard' ? ' selected' : '') + '>' + esc(ROLES.guard.name) + '</option>' +
-        '<option value="duty"' + (d.role === 'duty' ? ' selected' : '') + '>' + esc(ROLES.duty.name) + '</option>' +
-      '</select>') +
+      f('해당 근무', '<select id="ev-role">' + roleOptionsHTML(d.role, '구분 없음') + '</select>') +
     '</div>';
   body += f('일정 내용', '<input type="text" id="ev-title" placeholder="예) 대대 전투력 측정, 면회 통제" value="' +
     esc(editing ? editing.title : '') + '">');
   body += f('메모', '<input type="text" id="ev-memo" placeholder="비우셔도 됩니다" value="' +
     esc(editing ? editing.memo : '') + '">');
+  body += '<div class="grid g2" style="gap:0 10px">' +
+      f('반복', '<select id="ev-repeat">' + ['none','daily','weekly','monthly'].map(k =>
+        '<option value="' + k + '"' + ((editing ? (editing.repeat || 'none') : 'none') === k ? ' selected' : '') +
+        '>' + REPEAT_LABEL[k] + '</option>').join('') + '</select>') +
+      f('반복 종료일 (비우면 계속)', '<input type="date" id="ev-repeat-until" value="' + esc(editing ? editing.repeatUntil : '') + '">') +
+    '</div>';
+  if(editing && editing.repeat && editing.repeat !== 'none'){
+    body += f('적용 범위', '<div class="seg" id="ev-scope-seg">' +
+      [['this','이 날짜만'],['series','전체 반복 일정']].map(([k,l]) =>
+        '<button data-act="ev-scope" data-val="' + k + '" class="' + (d.scope === k ? 'on' : '') + '">' + l + '</button>').join('') +
+      '</div>');
+  }
   body += f('색상', '<div class="sw">' + EV_COLORS.map(c =>
     '<button data-act="ev-color" data-val="' + c + '" data-date="' + date + '" class="' +
     (d.color === c ? 'on' : '') + '"></button>').join('') + '</div>');
@@ -1819,7 +2041,7 @@ function table(head, rows){
 function viewGuide(){
   let h = '<div class="page">';
   h += '<div class="page-title">사용 설명서</div>';
-  h += '<div class="page-desc">' + esc(ROLES.guard.name) + ' · ' + esc(ROLES.duty.name) + ' 근무 인수인계 프로그램</div>';
+  h += '<div class="page-desc">' + esc(db.roles.map(function(x){return x.name;}).join(' · ')) + ' 근무 인수인계 · 일정관리 프로그램</div>';
 
   h += '<div class="callout info">' +
     '지시사항은 한 번 등록해 두면 <b>완료 처리할 때까지 다음 근무자에게 자동으로 넘어갑니다.</b> ' +
@@ -1854,8 +2076,8 @@ function viewGuide(){
       '여기 등록한 항목이 새 인계서마다 자동으로 들어갑니다.</li>' +
     '<li><b>근무 구분</b>(근무 시간대)도 설정에서 한 줄에 하나씩 등록합니다. ' +
       '등록하면 인계서에서 목록으로 고를 수 있고, 비워 두면 인계서에서 직접 입력합니다.</li>' +
-    '<li>' + esc(ROLES.guard.name) + '과 ' + esc(ROLES.duty.name) + '은 <b>서로 다른 목록</b>을 씁니다. 좌측 상단 이름을 눌러 전환한 뒤 각각 설정하십시오. ' +
-      '직책 이름 자체는 <b>설정 &gt; 직책 이름</b>에서 원하는 대로 바꿀 수 있습니다.</li>' +
+    '<li>직책마다 <b>서로 다른 목록</b>(점검 항목·지시사항·인계 기록)을 씁니다. 좌측 상단 이름을 눌러 전환한 뒤 각각 설정하십시오. ' +
+      '병사뿐 아니라 간부·군무원 등도 <b>설정 &gt; 직책 관리</b>에서 자신의 직책을 추가해 똑같이 쓸 수 있습니다.</li>' +
   '</ul>';
 
   h += '<h2 class="sec">2. 근무 중 — 지시를 받았을 때</h2>';
@@ -1868,7 +2090,7 @@ function viewGuide(){
     '<li><b>상세 내용</b>에는 배경과 조치 방법을 적습니다. 다음 근무자가 이것만 보고 움직일 수 있어야 합니다.</li>' +
     '<li><b>지시한 사람</b>을 반드시 적습니다. 나중에 되물어야 할 때 누구에게 갈지가 분명해집니다.</li>' +
     '<li><b>중요도</b>는 긴급 / 중요 / 일반 중에 고릅니다. 긴급과 중요는 목록 위로 올라옵니다.</li>' +
-    '<li>' + esc(ROLES.guard.name) + '과 ' + esc(ROLES.duty.name) + '이 함께 알아야 할 내용이면 <b>대상 직책</b>을 「공통」으로 둡니다.</li>' +
+    '<li>여러 직책이 함께 알아야 할 내용이면 <b>대상 직책</b>을 「공통」으로 둡니다.</li>' +
   '</ul>';
 
   h += '<h2 class="sec">3. 교대 30분 전 — 인계서 작성</h2>';
@@ -1920,6 +2142,11 @@ function viewGuide(){
       '<b>인계서의 「예정된 일정」</b>(오늘·내일)에 자동으로 나타납니다. ' +
       '교대할 때 다음 근무자에게 같이 넘어갑니다.</li>' +
     '<li>일정을 고치거나 지우려면 날짜를 눌러 목록에서 <b>수정</b> 또는 <b>삭제</b>를 누릅니다.</li>' +
+    '<li>정기 회의·매주 훈련처럼 되풀이되는 일정은 <b>반복</b>을 매일/매주/매월로 지정합니다. ' +
+      '반복 일정을 고칠 때는 <b>이 날짜만</b>(그날만 따로 수정) / <b>전체 반복 일정</b>(앞으로 전부 수정) 중에 고릅니다.</li>' +
+    '<li>상단 <b>월간/주간/일간</b> 버튼으로 보기 방식을 바꿀 수 있습니다. 직책이 여러 개면 ' +
+      '<b>직책 선택</b>으로 특정 직책의 일정만 걸러 볼 수 있습니다.</li>' +
+    '<li><b>설정 &gt; 알림</b>을 켜면, 이 탭을 열어 둔 동안 시간이 정해진 오늘 일정이 다가올 때 브라우저 알림이 뜹니다.</li>' +
     '<li>상단 <b>인쇄</b>로 그 달 달력과 일정 목록을 출력할 수 있습니다.</li>' +
   '</ul>';
 
@@ -1994,11 +2221,7 @@ function orderModal(existing){
     '<div class="grid g2">' +
       f('중요도', '<select id="m-pri">' + Object.keys(PRIORITY).map(k =>
         '<option value="' + k + '"' + ((o.priority || 'normal') === k ? ' selected' : '') + '>' + PRIORITY[k].label + '</option>').join('') + '</select>') +
-      f('대상 직책', '<select id="m-role">' +
-        '<option value="guard"' + ((o.role || db.activeRole) === 'guard' ? ' selected' : '') + '>' + esc(ROLES.guard.name) + '</option>' +
-        '<option value="duty"' + ((o.role || db.activeRole) === 'duty' ? ' selected' : '') + '>' + esc(ROLES.duty.name) + '</option>' +
-        '<option value="both"' + (o.role === 'both' ? ' selected' : '') + '>공통 (둘 다)</option>' +
-      '</select>') +
+      f('대상 직책', '<select id="m-role">' + roleOptionsHTML(o.role || db.activeRole, '공통 (전체 직책)') + '</select>') +
     '</div>';
   const foot =
     '<button class="btn" data-act="close-modal">취소</button>' +
@@ -2059,7 +2282,6 @@ function importData(){
         if(!parsed || !Array.isArray(parsed.sheets) || !Array.isArray(parsed.orders)) throw new Error('형식 오류');
         if(!confirm('현재 데이터를 백업 파일 내용으로 덮어씁니다. 계속할까요?')) return;
         db = normalize(Object.assign(freshDB(), parsed));
-        applyRoleNames();
         saveDB();
         go('home');
         toast('백업을 불러왔습니다.');
@@ -2103,16 +2325,61 @@ document.addEventListener('click', e => {
     'import': importData,
 
     'switch-role': () => {
-      db.activeRole = db.activeRole === 'guard' ? 'duty' : 'guard';
+      const body = db.roles.map(r =>
+        '<button class="btn' + (r.key === db.activeRole ? ' primary' : '') + '" data-act="pick-role" data-key="' + r.key + '" ' +
+          'style="width:100%;justify-content:flex-start;gap:8px;margin-bottom:6px">' +
+          '<span class="ws-badge" style="width:22px;height:22px;flex:0 0 22px;font-size:11px">' + esc(r.mark) + '</span>' +
+          esc(r.name) +
+        '</button>').join('');
+      openModal('직책 전환', body,
+        '<button class="btn" data-act="close-modal">닫기</button>' +
+        '<button class="btn" data-act="manage-roles">직책 관리</button>');
+    },
+    'pick-role': () => {
+      db.activeRole = el.dataset.key;
       saveDB();
+      closeModal();
       go('home');
       toast(role().name + ' 화면으로 전환했습니다.');
     },
+    'manage-roles': () => { closeModal(); go('settings'); },
+    'add-role': () => {
+      const input = $('#new-role');
+      const name = input.value.trim();
+      if(!name){ input.focus(); toast('직책 이름을 입력하십시오.'); return; }
+      const key = newRoleKey();
+      db.roles.push({ key:key, name:name, mark:name.slice(0,1) });
+      db.templates[key] = [];
+      db.lastNames[key] = '';
+      syncRoles();
+      saveDB();
+      render();
+      const n = $('#new-role'); if(n) n.focus();
+    },
+    'del-role': () => {
+      if(db.roles.length <= 1){ toast('직책은 최소 1개가 있어야 합니다.'); return; }
+      const key = el.dataset.key;
+      const r = ROLES[key];
+      if(!confirm((r ? r.name : '이 직책') + '을(를) 삭제합니다. 이 직책으로 이미 남은 지시사항·인계 기록·일정은 지워지지 않고 그대로 남습니다. 계속할까요?')) return;
+      db.roles = db.roles.filter(x => x.key !== key);
+      if(db.activeRole === key) db.activeRole = db.roles[0].key;
+      syncRoles();
+      saveDB();
+      render();
+      toast('직책을 삭제했습니다.');
+    },
 
-    'cal-move': () => { state.calMonth = shiftMonth(state.calMonth, parseInt(val,10)); render(); },
-    'cal-today': () => { state.calMonth = todayISO().slice(0,7); render(); },
+    'cal-move': () => {
+      const step = parseInt(val,10);
+      if(state.calMode === 'week') state.calDate = addDays(state.calDate, step*7);
+      else if(state.calMode === 'day') state.calDate = addDays(state.calDate, step);
+      else state.calMonth = shiftMonth(state.calMonth, step);
+      render();
+    },
+    'cal-today': () => { state.calMonth = todayISO().slice(0,7); state.calDate = todayISO(); render(); },
+    'cal-mode': () => { state.calMode = val; render(); },
     'cal-day': () => {
-      state.evDraft = { color:'blue', role:'both', editId:null };
+      state.evDraft = { color:'blue', role:'both', editId:null, scope:'series' };
       openDayModal(el.dataset.date);
     },
     'ev-color': () => {
@@ -2120,19 +2387,35 @@ document.addEventListener('click', e => {
       Array.prototype.forEach.call(el.parentElement.children,
         b => b.classList.toggle('on', b.dataset.val === val));
     },
+    'ev-scope': () => {
+      state.evDraft.scope = val;
+      Array.prototype.forEach.call(el.parentElement.children,
+        b => b.classList.toggle('on', b.dataset.val === val));
+    },
     'ev-edit': () => {
       const ev = getEvent(id);
-      state.evDraft = { color:ev.color, role:ev.role, editId:ev.id };
+      state.evDraft = { color:ev.color, role:ev.role, editId:ev.id, scope:'this' };
       openDayModal(el.dataset.date);
     },
     'ev-cancel': () => {
-      state.evDraft = { color:'blue', role:'both', editId:null };
+      state.evDraft = { color:'blue', role:'both', editId:null, scope:'series' };
       openDayModal(el.dataset.date);
     },
     'ev-del': () => {
-      if(!confirm('이 일정을 삭제합니다.')) return;
+      if(!confirm('이 일정을 삭제합니다. 반복 일정이면 모든 날짜의 일정이 함께 삭제됩니다.')) return;
       db.events = db.events.filter(x => x.id !== id);
       if(state.evDraft.editId === id) state.evDraft.editId = null;
+      saveDB();
+      openDayModal(el.dataset.date);
+      render();
+    },
+    'ev-del-one': () => {
+      if(!confirm('이 날짜의 일정만 삭제합니다. 다른 날짜의 반복 일정은 그대로 남습니다.')) return;
+      const base = getEvent(id);
+      if(base){
+        if(!Array.isArray(base.exceptions)) base.exceptions = [];
+        if(base.exceptions.indexOf(el.dataset.date) === -1) base.exceptions.push(el.dataset.date);
+      }
       saveDB();
       openDayModal(el.dataset.date);
       render();
@@ -2142,21 +2425,35 @@ document.addEventListener('click', e => {
       const title = $('#ev-title').value.trim();
       if(!title){ $('#ev-title').focus(); toast('일정 내용을 입력하십시오.'); return; }
       const data = {
-        date: date,
         time: $('#ev-time').value,
         title: title,
         memo: $('#ev-memo').value.trim(),
         color: state.evDraft.color,
         role: $('#ev-role').value,
+        repeat: $('#ev-repeat').value,
+        repeatUntil: $('#ev-repeat-until').value,
       };
-      if(state.evDraft.editId){
-        Object.assign(getEvent(state.evDraft.editId), data);
-        toast('일정을 수정했습니다.');
+      const editId = state.evDraft.editId;
+      if(editId){
+        const base = getEvent(editId);
+        if(base && base.repeat && base.repeat !== 'none' && state.evDraft.scope === 'this'){
+          /* 이 날짜만 떼어내 독립된 일정으로 만들고, 원래 반복에서는 이 날짜를 건너뜁니다 */
+          if(!Array.isArray(base.exceptions)) base.exceptions = [];
+          if(base.exceptions.indexOf(date) === -1) base.exceptions.push(date);
+          db.events.push(Object.assign(
+            { id:uid(), date:date, exceptions:[], createdAt:new Date().toISOString() },
+            data, { repeat:'none', repeatUntil:'' }));
+          toast('이 날짜의 일정만 수정했습니다.');
+        }else if(base){
+          Object.assign(base, data);
+          if(!Array.isArray(base.exceptions)) base.exceptions = [];
+          toast('일정을 수정했습니다.');
+        }
       }else{
-        db.events.push(Object.assign({ id:uid(), createdAt:new Date().toISOString() }, data));
+        db.events.push(Object.assign({ id:uid(), date:date, exceptions:[], createdAt:new Date().toISOString() }, data));
         toast('일정을 추가했습니다.');
       }
-      state.evDraft = { color:'blue', role:'both', editId:null };
+      state.evDraft = { color:'blue', role:'both', editId:null, scope:'series' };
       saveDB();
       openDayModal(date);
       render();
@@ -2293,11 +2590,26 @@ document.addEventListener('click', e => {
       saveDB();
       render();
     },
+    'toggle-notify': () => {
+      if(!db.notify){
+        if(typeof Notification === 'undefined'){ toast('이 브라우저는 알림을 지원하지 않습니다.'); return; }
+        Notification.requestPermission().then(perm => {
+          db.notify = perm === 'granted';
+          saveDB();
+          render();
+          toast(db.notify ? '알림을 켰습니다.' : '알림 권한이 허용되지 않았습니다.');
+        });
+        return;
+      }
+      db.notify = false;
+      saveDB();
+      render();
+      toast('알림을 껐습니다.');
+    },
     'wipe': () => {
       if(!confirm('저장된 모든 인계서와 지시사항을 삭제합니다. 계속할까요?')) return;
       if(!confirm('되돌릴 수 없습니다. 먼저 백업 파일을 받아 두는 것을 권장합니다. 계속하시겠습니까?')) return;
-      db = freshDB();
-      applyRoleNames();
+      db = normalize(freshDB());
       saveDB();
       go('home');
       toast('모든 데이터를 삭제했습니다.');
@@ -2362,11 +2674,15 @@ document.addEventListener('input', e => {
     db.templates[db.activeRole][parseInt(parts[1],10)] = el.value;
     saveSoon();
   }else if(kind === 'rolename'){
-    db.roleNames[parts[1]] = el.value;
-    applyRoleNames();
-    const ws = $('.ws-title'); const badge = $('.ws-badge');   /* 사이드바 이름을 즉시 반영 */
-    if(ws) ws.textContent = role().name;
-    if(badge) badge.textContent = role().mark;
+    const r = ROLES[parts[1]];
+    if(!r) return;
+    r.name = el.value;
+    r.mark = (el.value.trim() || '직책').slice(0,1);
+    if(parts[1] === db.activeRole){
+      const ws = $('.ws-title'); const badge = $('.ws-badge');   /* 사이드바 이름을 즉시 반영 */
+      if(ws) ws.textContent = r.name;
+      if(badge) badge.textContent = r.mark;
+    }
     saveSoon();
   }
 });
@@ -2380,6 +2696,7 @@ document.addEventListener('compositionend', e => {
 
 document.addEventListener('change', e => {
   const el = e.target;
+  if(el.id === 'cal-role-filter'){ state.calRoleFilter = el.value; render(); return; }
   if(el.dataset.in && el.type === 'checkbox') return; /* input 이벤트에서 처리됨 */
   if(el.dataset.in && (el.tagName === 'SELECT' || el.type === 'date')){
     /* select/date 는 input 이벤트로도 들어오지만 일부 브라우저 대비 */
@@ -2393,6 +2710,7 @@ document.addEventListener('keydown', e => {
   const id = e.target.id;
   if(id === 'new-check')      $('[data-act="add-check"]').click();
   else if(id === 'new-tpl')   $('[data-act="add-tpl"]').click();
+  else if(id === 'new-role')  $('[data-act="add-role"]').click();
   else if(id === 'log-note')  $('[data-act="add-log"]').click();
   else if(id === 'todo-input'){
     const btn = $('[data-act="todo-add"]');
@@ -2414,8 +2732,8 @@ function welcome(){
     '<p class="small muted" style="margin-bottom:16px">' +
       '인터넷 없이 이 컴퓨터에서만 동작합니다. 처음 한 번만 설정하면 됩니다.</p>' +
     f('부대 / 소속 표기', '<input type="text" id="w-unit" placeholder="예) ○○연대 1대대">') +
-    f('먼저 사용할 직책', '<select id="w-role"><option value="guard">' + esc(ROLES.guard.name) + '</option><option value="duty">' + esc(ROLES.duty.name) + '</option></select>') +
-    '<div class="tiny faint" style="margin-top:-8px">직책 이름은 나중에 설정에서 바꿀 수 있습니다.</div>' +
+    f('먼저 사용할 직책', '<select id="w-role">' + roleOptionsHTML(db.activeRole, null) + '</select>') +
+    '<div class="tiny faint" style="margin-top:-8px">직책 이름을 바꾸거나 새 직책(간부·군무원 등)을 추가하는 것은 나중에 설정에서 할 수 있습니다.</div>' +
     '<div class="callout info small" style="margin-top:6px">' +
       '간부에게 지시를 받으면 그 자리에서 지시사항으로 등록하십시오. ' +
       '완료 처리 전까지 모든 인계서에 자동으로 포함되므로 누락되지 않습니다.' +
@@ -2439,12 +2757,13 @@ function welcome(){
 /* ---------- 시작 ---------- */
 (function init(){
   db = loadDB();
-  applyRoleNames();
   let theme = 'light';
   try{ theme = localStorage.getItem(THEME_KEY) || 'light'; }catch(e){}
   applyTheme(theme);
   state.sidebarHidden = isNarrow();
   render();
+  setInterval(checkNotifications, 60000);
+  setTimeout(checkNotifications, 3000);
   window.addEventListener('resize', () => {
     const narrow = isNarrow();
     if(!narrow && state.sidebarHidden){ state.sidebarHidden = false; renderSidebar(); }
@@ -2465,7 +2784,6 @@ function welcome(){
     if(el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
     try{
       db = normalize(JSON.parse(e.newValue));
-      applyRoleNames();
       render();
     }catch(err){ /* 형식이 깨진 경우 현재 상태를 유지합니다 */ }
   });
