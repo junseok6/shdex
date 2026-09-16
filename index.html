@@ -5,51 +5,51 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>근무 인수인계</title>
 <style>
-/* ===== 기본 토큰 (노션 계열 팔레트) ===== */
+/* ===== 색상 토큰 ===== */
 :root{
-  --bg:#ffffff;
-  --bg-sidebar:#fbfbfa;
-  --bg-hover:rgba(55,53,47,.06);
-  --bg-active:rgba(55,53,47,.09);
+  --bg:#fefcfd;
+  --bg-sidebar:#faf7f8;
+  --bg-hover:rgba(80,40,60,.05);
+  --bg-active:rgba(80,40,60,.09);
   --bg-input:#ffffff;
   --bg-card:#ffffff;
-  --text:#37352f;
-  --text-dim:#787774;
-  --text-faint:#9b9a97;
-  --border:#e9e9e7;
-  --border-strong:#dcdcd9;
-  --accent:#2383e2;
-  --accent-soft:#e7f1fb;
-  --red:#b91c1c;      --red-bg:#ffe9e5;
-  --orange:#a14c11;   --orange-bg:#fbecdd;
-  --yellow:#8a6d1f;   --yellow-bg:#fbf3db;
-  --green:#1d6b3f;    --green-bg:#dcefe3;
-  --blue:#1a5b9e;     --blue-bg:#ddebf4;
-  --gray:#6b6a67;     --gray-bg:#eeedec;
-  --shadow:0 1px 2px rgba(15,15,15,.06), 0 3px 8px rgba(15,15,15,.06);
-  --radius:6px;
+  --text:#2d2235;
+  --text-dim:#6e6478;
+  --text-faint:#9a8fa3;
+  --border:#ebe5ea;
+  --border-strong:#ddd5dc;
+  --accent:#c026d3;
+  --accent-soft:#fae8ff;
+  --red:#dc2626;      --red-bg:#fef2f2;
+  --orange:#d97706;   --orange-bg:#fefce8;
+  --yellow:#a16207;   --yellow-bg:#fef9c3;
+  --green:#16a34a;    --green-bg:#ecfdf5;
+  --blue:#2563eb;     --blue-bg:#eff6ff;
+  --gray:#71717a;     --gray-bg:#f1eff2;
+  --shadow:0 1px 3px rgba(80,20,60,.07), 0 4px 12px rgba(80,20,60,.06);
+  --radius:8px;
 }
 html[data-theme="dark"]{
-  --bg:#191919;
-  --bg-sidebar:#202020;
-  --bg-hover:rgba(255,255,255,.055);
-  --bg-active:rgba(255,255,255,.09);
-  --bg-input:#252525;
-  --bg-card:#1f1f1f;
-  --text:#d4d4d4;
-  --text-dim:#9b9b9b;
-  --text-faint:#6f6f6f;
-  --border:#2f2f2f;
-  --border-strong:#3d3d3d;
-  --accent:#2f8ce8;
-  --accent-soft:#1c3345;
-  --red:#ff7369;      --red-bg:#442a28;
-  --orange:#ffa344;   --orange-bg:#43342a;
-  --yellow:#ffdc49;   --yellow-bg:#413d26;
-  --green:#4dab6d;    --green-bg:#243d2c;
-  --blue:#529cca;     --blue-bg:#233a4c;
-  --gray:#9b9b9b;     --gray-bg:#2e2e2e;
-  --shadow:0 1px 2px rgba(0,0,0,.3), 0 3px 8px rgba(0,0,0,.3);
+  --bg:#18121a;
+  --bg-sidebar:#1e1720;
+  --bg-hover:rgba(220,180,240,.06);
+  --bg-active:rgba(220,180,240,.1);
+  --bg-input:#241d28;
+  --bg-card:#1e1720;
+  --text:#e8e0ec;
+  --text-dim:#a89ab2;
+  --text-faint:#706080;
+  --border:#332940;
+  --border-strong:#453a52;
+  --accent:#e879f9;
+  --accent-soft:#3b1450;
+  --red:#f87171;      --red-bg:#3f1d1d;
+  --orange:#fbbf24;   --orange-bg:#3d3118;
+  --yellow:#facc15;   --yellow-bg:#3a3518;
+  --green:#4ade80;    --green-bg:#1a3326;
+  --blue:#60a5fa;     --blue-bg:#1e2d48;
+  --gray:#a1a1aa;     --gray-bg:#2a2530;
+  --shadow:0 1px 3px rgba(0,0,0,.35), 0 4px 12px rgba(0,0,0,.3);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -62,7 +62,7 @@ body{
 button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 button{cursor:pointer;background:none;border:none}
 a{color:var(--accent);text-decoration:none}
-::selection{background:rgba(35,131,226,.24)}
+::selection{background:rgba(192,38,211,.22)}
 
 /* ===== 레이아웃 ===== */
 .app{display:flex;height:100vh;overflow:hidden}
@@ -140,10 +140,12 @@ a{color:var(--accent);text-decoration:none}
 }
 .page-desc{color:var(--text-dim);font-size:14.5px;margin-bottom:26px}
 h2.sec{
-  font-size:19px;font-weight:600;letter-spacing:-.01em;margin:32px 0 10px;
+  font-size:19px;font-weight:600;letter-spacing:-.01em;
+  margin:34px 0 12px;padding-top:22px;border-top:1px solid var(--border);
   display:flex;align-items:center;gap:8px;
 }
-h2.sec:first-of-type{margin-top:12px}
+h2.sec:first-of-type{margin-top:12px;padding-top:0;border-top:none}
+h2.sec.plain{padding-top:0;border-top:none}
 h3.sub{font-size:15px;font-weight:600;margin:20px 0 8px;color:var(--text)}
 .muted{color:var(--text-dim)}
 .faint{color:var(--text-faint)}
@@ -304,6 +306,20 @@ select{cursor:pointer}
 .ev.green{background:var(--green-bg);color:var(--green)}
 .ev.blue{background:var(--blue-bg);color:var(--blue)}
 .cal-more{font-size:11px;color:var(--text-faint);padding-left:3px}
+.cal-lunar{font-size:10px;color:var(--text-faint);line-height:1.2;margin-left:4px;white-space:nowrap}
+.cal-hol{font-size:10px;color:var(--red);font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-cell.holiday .cal-d{color:var(--red) !important}
+.cal-todo{font-size:10.5px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px;border-radius:2px}
+.cal-todo.done{text-decoration:line-through;color:var(--text-faint)}
+.todo-row{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--border)}
+.todo-row:last-of-type{border-bottom:none}
+.todo-row input[type=checkbox]{width:16px;height:16px;flex:0 0 16px;accent-color:var(--accent);cursor:pointer}
+.todo-row .todo-text{flex:1;min-width:0;font-size:14px}
+.todo-row .todo-text.done{text-decoration:line-through;color:var(--text-faint)}
+.todo-row .todo-del{color:var(--text-faint);font-size:12px;padding:2px 6px;border-radius:4px;opacity:0}
+.todo-row:hover .todo-del{opacity:1}
+.todo-row .todo-del:hover{background:var(--bg-hover);color:var(--red)}
+.cal-d-wrap{display:flex;align-items:center}
 .ev-row{
   display:flex;align-items:flex-start;gap:9px;padding:8px 4px;border-bottom:1px solid var(--border);
 }
@@ -455,15 +471,28 @@ ul.plain li b{font-weight:600}
    ============================================================ */
 
 /* ---------- 상수 ---------- */
-const APP_VERSION = '1.5';          /* 화면 하단에 표시됩니다. 갱신 여부 확인용 */
-const APP_DATE = '2026-09-14';
+const APP_VERSION = '2.0';          /* 화면 하단에 표시됩니다. 갱신 여부 확인용 */
+const APP_DATE = '2026-09-16';
 const DB_KEY = 'shdex.handover.v1';
 const THEME_KEY = 'shdex.theme';
 
-const ROLES = {
-  guard: { key:'guard', name:'위병조장', mark:'위' },
-  duty:  { key:'duty',  name:'당직병',   mark:'당' },
+const ROLE_DEFAULTS = {
+  guard: '위병조장',
+  duty:  '당직병',
 };
+const ROLES = {
+  guard: { key:'guard', name:ROLE_DEFAULTS.guard, mark:ROLE_DEFAULTS.guard.slice(0,1) },
+  duty:  { key:'duty',  name:ROLE_DEFAULTS.duty,  mark:ROLE_DEFAULTS.duty.slice(0,1) },
+};
+/* 직책 이름은 설정에서 직접 입력할 수 있습니다. 저장된 이름을 ROLES에 반영합니다. */
+function applyRoleNames(){
+  ['guard','duty'].forEach(k => {
+    const custom = (db.roleNames && db.roleNames[k] || '').trim();
+    const name = custom || ROLE_DEFAULTS[k];
+    ROLES[k].name = name;
+    ROLES[k].mark = name.slice(0,1);
+  });
+}
 
 const PRIORITY = {
   urgent: { key:'urgent', label:'긴급', cls:'red',    rank:0 },
@@ -486,17 +515,149 @@ const SHEET_STATUS = {
 /* 달력 일정 색상 */
 const EV_COLORS = ['gray','blue','green','yellow','orange','red'];
 
+/* ---------- 음력 데이터 (2024-2035) ---------- */
+/* ny: [월,일] = 음력 1/1의 양력 날짜, leap: 윤달(0=없음), m: 각 월 일수(윤달 포함) */
+const LUNAR_DATA = {
+  2024:{ny:[2,10],leap:0,m:[29,30,29,30,29,30,29,30,29,30,29,30]},
+  2025:{ny:[1,29],leap:6,m:[30,29,30,29,30,29,30,29,30,29,30,30,29]},
+  2026:{ny:[2,17],leap:0,m:[30,29,30,30,29,30,29,30,30,29,30,29]},
+  2027:{ny:[2,6],leap:0,m:[30,29,29,30,29,30,29,30,30,30,29,30]},
+  2028:{ny:[1,26],leap:5,m:[29,30,29,29,30,29,30,29,30,30,30,29,30]},
+  2029:{ny:[2,13],leap:0,m:[30,29,30,29,29,30,29,30,29,30,30,30]},
+  2030:{ny:[2,3],leap:0,m:[29,30,29,30,29,29,30,29,30,29,30,30]},
+  2031:{ny:[1,23],leap:3,m:[30,29,30,29,30,29,29,30,29,30,29,30,30]},
+  2032:{ny:[2,11],leap:0,m:[30,29,30,30,29,30,29,29,30,29,30,29]},
+  2033:{ny:[1,31],leap:11,m:[30,30,29,30,29,30,30,29,29,30,29,30,29]},
+  2034:{ny:[2,19],leap:0,m:[30,29,30,29,30,30,29,30,29,30,29,30]},
+  2035:{ny:[2,8],leap:0,m:[29,30,29,30,29,30,29,30,30,29,30,29]},
+};
+
+/* 음력→양력 기반 공휴일 (설날 3일, 부처님오신날, 추석 3일) */
+const LUNAR_HOLIDAYS = {
+  2024:{seollal:['2024-02-09','2024-02-10','2024-02-11'],buddha:'2024-05-15',chuseok:['2024-09-16','2024-09-17','2024-09-18']},
+  2025:{seollal:['2025-01-28','2025-01-29','2025-01-30'],buddha:'2025-05-05',chuseok:['2025-10-05','2025-10-06','2025-10-07']},
+  2026:{seollal:['2026-02-16','2026-02-17','2026-02-18'],buddha:'2026-05-24',chuseok:['2026-09-24','2026-09-25','2026-09-26']},
+  2027:{seollal:['2027-02-05','2027-02-06','2027-02-07'],buddha:'2027-05-13',chuseok:['2027-09-14','2027-09-15','2027-09-16']},
+  2028:{seollal:['2028-01-25','2028-01-26','2028-01-27'],buddha:'2028-05-02',chuseok:['2028-10-02','2028-10-03','2028-10-04']},
+  2029:{seollal:['2029-02-12','2029-02-13','2029-02-14'],buddha:'2029-05-20',chuseok:['2029-09-21','2029-09-22','2029-09-23']},
+  2030:{seollal:['2030-02-02','2030-02-03','2030-02-04'],buddha:'2030-05-09',chuseok:['2030-09-11','2030-09-12','2030-09-13']},
+  2031:{seollal:['2031-01-22','2031-01-23','2031-01-24'],buddha:'2031-05-28',chuseok:['2031-09-30','2031-10-01','2031-10-02']},
+  2032:{seollal:['2032-02-10','2032-02-11','2032-02-12'],buddha:'2032-05-16',chuseok:['2032-09-18','2032-09-19','2032-09-20']},
+  2033:{seollal:['2033-01-30','2033-01-31','2033-02-01'],buddha:'2033-05-06',chuseok:['2033-09-07','2033-09-08','2033-09-09']},
+  2034:{seollal:['2034-02-18','2034-02-19','2034-02-20'],buddha:'2034-05-25',chuseok:['2034-09-26','2034-09-27','2034-09-28']},
+  2035:{seollal:['2035-02-07','2035-02-08','2035-02-09'],buddha:'2035-05-14',chuseok:['2035-09-15','2035-09-16','2035-09-17']},
+};
+
+/* ---------- 공휴일 맵 (연도별 캐시) ---------- */
+const _holCache = {};
+function buildHolidayMap(year){
+  const map = {};
+  const all = [];
+  /* 양력 고정 공휴일 */
+  [['01-01','신정'],['03-01','삼일절'],['05-05','어린이날'],['06-06','현충일'],
+   ['08-15','광복절'],['10-03','개천절'],['10-09','한글날'],['12-25','성탄절']
+  ].forEach(function(h){ all.push({date:year+'-'+h[0],name:h[1]}); });
+  /* 음력 기반 공휴일 */
+  var lunar = LUNAR_HOLIDAYS[year];
+  if(lunar){
+    all.push({date:lunar.seollal[0],name:'설날 연휴'});
+    all.push({date:lunar.seollal[1],name:'설날'});
+    all.push({date:lunar.seollal[2],name:'설날 연휴'});
+    all.push({date:lunar.buddha,name:'부처님오신날'});
+    all.push({date:lunar.chuseok[0],name:'추석 연휴'});
+    all.push({date:lunar.chuseok[1],name:'추석'});
+    all.push({date:lunar.chuseok[2],name:'추석 연휴'});
+  }
+  /* 기본 맵 + 중복 카운트 */
+  var counts = {};
+  all.forEach(function(h){
+    if(!map[h.date]) map[h.date] = h.name;
+    counts[h.date] = (counts[h.date]||0) + 1;
+  });
+  /* 대체휴일 계산: 토·일이면 다음 평일 */
+  var findNext = function(from){
+    var d = addDays(from, 1);
+    for(var i=0;i<10;i++){
+      var dow = new Date(d+'T00:00:00').getDay();
+      if(dow!==0 && dow!==6 && !map[d]) return d;
+      d = addDays(d, 1);
+    }
+    return d;
+  };
+  all.forEach(function(h){
+    var dow = new Date(h.date+'T00:00:00').getDay();
+    if(dow===0 || dow===6){
+      var sub = findNext(h.date);
+      if(!map[sub]) map[sub] = '대체휴일';
+    }
+  });
+  /* 같은 날 공휴일 겹침 (예: 어린이날+부처님오신날) → 대체휴일 */
+  Object.keys(counts).forEach(function(date){
+    if(counts[date]>1){
+      var dow = new Date(date+'T00:00:00').getDay();
+      if(dow!==0 && dow!==6){
+        var sub = findNext(date);
+        if(!map[sub]) map[sub] = '대체휴일';
+      }
+    }
+  });
+  return map;
+}
+function getHolidayMap(year){
+  if(!_holCache[year]) _holCache[year] = buildHolidayMap(year);
+  return _holCache[year];
+}
+function holidayName(isoDate){
+  var y = parseInt(isoDate.slice(0,4),10);
+  return getHolidayMap(y)[isoDate] || null;
+}
+
+/* ---------- 양력→음력 변환 ---------- */
+function daysBetweenISO(a,b){
+  return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000);
+}
+function physToLunar(idx,leapMonth){
+  if(leapMonth===0 || idx<leapMonth) return {month:idx+1,leap:false};
+  if(idx===leapMonth) return {month:leapMonth,leap:true};
+  return {month:idx,leap:false};
+}
+function solarToLunar(isoDate){
+  var year = parseInt(isoDate.slice(0,4),10);
+  for(var ly=year; ly>=year-1; ly--){
+    var data = LUNAR_DATA[ly];
+    if(!data) continue;
+    var nyISO = ly+'-'+String(data.ny[0]).padStart(2,'0')+'-'+String(data.ny[1]).padStart(2,'0');
+    if(isoDate < nyISO) continue;
+    var remaining = daysBetweenISO(nyISO, isoDate);
+    for(var i=0; i<data.m.length; i++){
+      if(remaining < data.m[i]){
+        var info = physToLunar(i, data.leap);
+        return {year:ly, month:info.month, day:remaining+1, leap:info.leap};
+      }
+      remaining -= data.m[i];
+    }
+  }
+  return null;
+}
+function lunarLabel(isoDate){
+  var l = solarToLunar(isoDate);
+  if(!l) return '';
+  return (l.leap?'윤':'') + l.month + '.' + l.day;
+}
+
 /* ---------- 저장소 ---------- */
 function freshDB(){
   return {
     version: 1,
     unit: '',
     activeRole: 'guard',
+    roleNames: { guard: '', duty: '' },   /* 비워 두면 기본 이름(위병조장/당직병)을 씁니다 */
     templates: { guard: [], duty: [] },   /* 점검 항목은 설정에서 직접 등록합니다 */
     shifts: [],                           /* 근무 구분도 설정에서 직접 등록합니다 */
     orders: [],
     sheets: [],
     events: [],
+    todos: [],
     lastNames: { guard:'', duty:'' },
     createdAt: new Date().toISOString(),
   };
@@ -512,6 +673,7 @@ function loadDB(){
     return normalize(Object.assign(base, parsed, {
       templates: Object.assign(base.templates, parsed.templates || {}),
       lastNames: Object.assign(base.lastNames, parsed.lastNames || {}),
+      roleNames: Object.assign(base.roleNames, parsed.roleNames || {}),
     }));
   }catch(e){
     console.error('저장 데이터를 읽지 못했습니다.', e);
@@ -523,6 +685,11 @@ function normalize(d){
   if(!Array.isArray(d.orders)) d.orders = [];
   if(!Array.isArray(d.sheets)) d.sheets = [];
   if(!Array.isArray(d.events)) d.events = [];
+  if(!Array.isArray(d.todos)) d.todos = [];
+  d.todos.forEach(t => {
+    ['date','text'].forEach(k => { if(typeof t[k] !== 'string') t[k] = ''; });
+    if(typeof t.done !== 'boolean') t.done = false;
+  });
   d.events.forEach(e => {
     if(EV_COLORS.indexOf(e.color) === -1) e.color = 'gray';
     if(['both','guard','duty'].indexOf(e.role) === -1) e.role = 'both';
@@ -545,6 +712,8 @@ function normalize(d){
     ['outName','inName','notes','keyMessage','shift','date'].forEach(k => { if(typeof s[k] !== 'string') s[k] = ''; });
   });
   if(!ROLES[d.activeRole]) d.activeRole = 'guard';
+  if(!d.roleNames || typeof d.roleNames !== 'object') d.roleNames = { guard:'', duty:'' };
+  ['guard','duty'].forEach(k => { if(typeof d.roleNames[k] !== 'string') d.roleNames[k] = ''; });
   return d;
 }
 
@@ -688,6 +857,8 @@ function eventsBetween(from, to){
     .sort((a,b) => (a.date + (a.time || '99:99')) < (b.date + (b.time || '99:99')) ? -1 : 1);
 }
 function getEvent(id){ return db.events.find(e => e.id === id); }
+function todosOn(date){ return db.todos.filter(t => t.date === date); }
+function getTodo(id){ return db.todos.find(t => t.id === id); }
 
 /* ---------- 동작 ---------- */
 function newSheet(roleKey){
@@ -857,7 +1028,7 @@ function renderSidebar(){
   $('#sidebar').className = 'sidebar' + (state.sidebarHidden ? ' hidden' : '');
   $('#sidebar').innerHTML =
     '<div class="ws" data-act="switch-role" title="직책 전환">' +
-      '<div class="ws-badge">' + r.mark + '</div>' +
+      '<div class="ws-badge">' + esc(r.mark) + '</div>' +
       '<div class="ws-text">' +
         '<div class="ws-title">' + esc(r.name) + '</div>' +
         '<div class="ws-sub">' + esc(db.unit || '부대명 미설정') + '</div>' +
@@ -1288,7 +1459,7 @@ function viewOrder(){
 
   h += '<div class="sheet-head"><div class="kv">' +
     '<div class="k">지시한 사람</div><div>' + esc(o.from || '-') + '</div>' +
-    '<div class="k">대상 직책</div><div>' + (o.role === 'both' ? '위병조장 · 당직병 공통' : esc(ROLES[o.role] ? ROLES[o.role].name : o.role)) + '</div>' +
+    '<div class="k">대상 직책</div><div>' + (o.role === 'both' ? esc(ROLES.guard.name) + ' · ' + esc(ROLES.duty.name) + ' 공통' : esc(ROLES[o.role] ? ROLES[o.role].name : o.role)) + '</div>' +
     '<div class="k">기한</div><div' + (late ? ' style="color:var(--red);font-weight:600"' : '') + '>' +
       (o.due ? esc(fmtDate(o.due)) + (late ? ' · 경과' : '') : '없음') + '</div>' +
   '</div></div>';
@@ -1372,6 +1543,15 @@ function viewSettings(){
   h += '<h2 class="sec">부대 정보</h2>';
   h += f('부대 / 소속 표기', '<input type="text" data-in="db:unit" placeholder="예) ○○사단 ○○연대 1대대" value="' + esc(db.unit) + '">');
 
+  h += '<h2 class="sec">직책 이름</h2>';
+  h += '<div class="small muted" style="margin-bottom:8px">' +
+    '기본값은 <b>위병조장 / 당직병</b>입니다. 다른 이름을 쓰는 부대라면 직접 입력해 바꾸십시오. ' +
+    '좌측 상단 이름을 눌러 전환하는 두 직책 각각에 적용됩니다.</div>' +
+    '<div class="grid g2">' +
+      f('직책 1 이름', '<input type="text" data-in="rolename:guard" placeholder="' + esc(ROLE_DEFAULTS.guard) + '" value="' + esc(db.roleNames.guard) + '">') +
+      f('직책 2 이름', '<input type="text" data-in="rolename:duty" placeholder="' + esc(ROLE_DEFAULTS.duty) + '" value="' + esc(db.roleNames.duty) + '">') +
+    '</div>';
+
   h += '<h2 class="sec">근무 구분</h2>';
   h += '<div class="small muted" style="margin-bottom:8px">' +
     '인계서에서 고를 근무 시간대를 <b>한 줄에 하나씩</b> 입력하십시오. ' +
@@ -1428,15 +1608,19 @@ function viewCalendar(){
   const key = state.calMonth;
   const y = parseInt(key.slice(0,4),10), m = parseInt(key.slice(5,7),10);
   const first = new Date(y, m-1, 1);
-  const lead = first.getDay();                    /* 1일이 무슨 요일인지 */
-  const total = new Date(y, m, 0).getDate();      /* 이 달의 마지막 날 */
+  const lead = first.getDay();
+  const total = new Date(y, m, 0).getDate();
   const weeks = Math.ceil((lead + total) / 7);
   const today = todayISO();
+  const holMap = getHolidayMap(y);
+  /* 달이 넘어가는 셀을 위해 인접 연도 공휴일도 준비 */
+  const holMapPrev = (m === 1) ? getHolidayMap(y-1) : holMap;
+  const holMapNext = (m === 12) ? getHolidayMap(y+1) : holMap;
 
   let h = '<div class="page wide">';
   h += '<div class="page-title">달력</div>';
   h += '<div class="page-desc">훈련·검열·면회·정비 등 근무와 관련된 일정을 적어 둡니다. ' +
-       '날짜를 누르면 일정을 넣을 수 있습니다.</div>';
+       '날짜를 누르면 일정·할 일을 넣을 수 있습니다.</div>';
 
   h += '<div class="cal-head no-print">' +
     '<button class="btn sm" data-act="cal-move" data-val="-1">이전</button>' +
@@ -1457,24 +1641,46 @@ function viewCalendar(){
   const start = addDays(key + '-01', -lead);
   for(let i = 0; i < weeks * 7; i++){
     const date = addDays(start, i);
-    const dow = i % 7;              /* 격자는 일요일부터 시작합니다 */
+    const dow = i % 7;
     const inMonth = date.slice(0,7) === key;
     const evs = eventsOn(date);
+    const tds = todosOn(date);
+    const dateY = parseInt(date.slice(0,4),10);
+    const hol = getHolidayMap(dateY)[date] || null;
+    const lunar = lunarLabel(date);
     const cls = ['cal-cell'];
     if(!inMonth) cls.push('out');
-    if(dow === 0) cls.push('sun');
-    if(dow === 6) cls.push('sat');
+    if(dow === 0 || hol) cls.push(dow === 0 ? 'sun' : '');
+    if(hol) cls.push('holiday');
+    else if(dow === 0) { /* already added */ }
+    if(dow === 6 && !hol) cls.push('sat');
     if(date === today) cls.push('today');
-    h += '<div class="' + cls.join(' ') + '" data-act="cal-day" data-date="' + date + '">' +
-      '<div class="cal-d">' + parseInt(date.slice(8),10) + '</div>' +
-      evs.slice(0,3).map(e => '<div class="ev ' + e.color + '" title="' + esc(e.title) + '">' +
-        (e.time ? esc(e.time) + ' ' : '') + esc(e.title) + '</div>').join('') +
-      (evs.length > 3 ? '<div class="cal-more">+' + (evs.length - 3) + '건</div>' : '') +
-    '</div>';
+
+    h += '<div class="' + cls.filter(Boolean).join(' ') + '" data-act="cal-day" data-date="' + date + '">';
+    /* 날짜 + 음력 */
+    h += '<div class="cal-d-wrap"><div class="cal-d">' + parseInt(date.slice(8),10) + '</div>';
+    if(lunar) h += '<span class="cal-lunar">' + esc(lunar) + '</span>';
+    h += '</div>';
+    /* 공휴일 이름 */
+    if(hol) h += '<div class="cal-hol">' + esc(hol) + '</div>';
+    /* 일정 */
+    var maxItems = hol ? 2 : 3;
+    evs.slice(0,maxItems).forEach(function(e){
+      h += '<div class="ev ' + e.color + '" title="' + esc(e.title) + '">' +
+        (e.time ? esc(e.time) + ' ' : '') + esc(e.title) + '</div>';
+    });
+    if(evs.length > maxItems) h += '<div class="cal-more">+' + (evs.length - maxItems) + '건</div>';
+    /* 할 일 (최대 2개) */
+    tds.slice(0,2).forEach(function(t){
+      h += '<div class="cal-todo' + (t.done ? ' done' : '') + '">' +
+        (t.done ? '✓ ' : '○ ') + esc(t.text) + '</div>';
+    });
+    if(tds.length > 2) h += '<div class="cal-more">+' + (tds.length - 2) + '건</div>';
+    h += '</div>';
   }
   h += '</div></div>';
 
-  /* 이 달의 일정을 목록으로도 보여 줍니다. 인쇄하면 달력 아래에 함께 나옵니다. */
+  /* 이 달의 일정을 목록으로도 보여 줍니다 */
   const monthEvents = eventsBetween(key + '-01', key + '-' + String(total).padStart(2,'0'));
   h += '<h2 class="sec">' + m + '월 일정 ' + (monthEvents.length ? monthEvents.length + '건' : '') + '</h2>';
   if(!monthEvents.length){
@@ -1491,6 +1697,24 @@ function viewCalendar(){
         '</div></div></div>';
     });
   }
+
+  /* 이 달의 공휴일 목록 */
+  const monthHols = [];
+  for(var d=1; d<=total; d++){
+    var dd = key + '-' + String(d).padStart(2,'0');
+    var hn = holMap[dd];
+    if(hn) monthHols.push({date:dd, name:hn});
+  }
+  if(monthHols.length){
+    h += '<h2 class="sec">' + m + '월 공휴일 ' + monthHols.length + '일</h2>';
+    monthHols.forEach(function(ho){
+      h += '<div class="row"><span class="ev-dot red" style="margin-top:0"></span>' +
+        '<div class="grow"><div class="ttl" style="color:var(--red)">' + esc(ho.name) + '</div>' +
+        '<div class="card-meta"><span>' + esc(fmtDate(ho.date)) + '</span>' +
+        '<span>음력 ' + esc(lunarLabel(ho.date)) + '</span></div></div></div>';
+    });
+  }
+
   h += '</div>';
   return h;
 }
@@ -1520,13 +1744,44 @@ function openDayModal(date){
     body += '<div class="small faint" style="padding:6px 4px 12px">등록된 일정이 없습니다.</div>';
   }
 
+  /* 공휴일 / 음력 정보 */
+  const hol = holidayName(date);
+  const lunar = solarToLunar(date);
+  if(hol || lunar){
+    body += '<div style="padding:4px 0 8px;font-size:13px">';
+    if(hol) body += '<span style="color:var(--red);font-weight:600">📅 ' + esc(hol) + '</span> ';
+    if(lunar) body += '<span class="faint">음력 ' + (lunar.leap?'윤':'') + lunar.month + '월 ' + lunar.day + '일</span>';
+    body += '</div>';
+  }
+
+  /* ── 할 일 (TODO) ── */
+  body += '<div class="divider" style="margin:10px 0"></div>';
+  body += '<div style="font-size:13px;font-weight:600;color:var(--text-dim);margin-bottom:6px">할 일</div>';
+  const todos = todosOn(date);
+  if(todos.length){
+    todos.forEach(function(t){
+      body += '<div class="todo-row">' +
+        '<input type="checkbox" data-act="todo-toggle" data-id="' + t.id + '" data-date="' + date + '"' + (t.done ? ' checked' : '') + '>' +
+        '<span class="todo-text' + (t.done ? ' done' : '') + '">' + esc(t.text) + '</span>' +
+        '<button class="todo-del" data-act="todo-del" data-id="' + t.id + '" data-date="' + date + '">삭제</button>' +
+      '</div>';
+    });
+  }else{
+    body += '<div class="small faint" style="padding:4px 0 8px">등록된 할 일이 없습니다.</div>';
+  }
+  body += '<div style="display:flex;gap:6px;margin-top:8px">' +
+    '<input type="text" id="todo-input" placeholder="할 일 입력" style="flex:1">' +
+    '<button class="btn sm primary" data-act="todo-add" data-date="' + date + '">추가</button></div>';
+
+  /* ── 일정 입력 폼 ── */
   body += '<div class="divider" style="margin:14px 0"></div>';
+  body += '<div style="font-size:13px;font-weight:600;color:var(--text-dim);margin-bottom:6px">일정 등록</div>';
   body += '<div class="grid g2" style="gap:0 10px">' +
       f('시간 (비우면 종일)', '<input type="time" id="ev-time" value="' + esc(editing ? editing.time : '') + '">') +
       f('해당 근무', '<select id="ev-role">' +
         '<option value="both"' + (d.role === 'both' ? ' selected' : '') + '>구분 없음</option>' +
-        '<option value="guard"' + (d.role === 'guard' ? ' selected' : '') + '>위병조장</option>' +
-        '<option value="duty"' + (d.role === 'duty' ? ' selected' : '') + '>당직병</option>' +
+        '<option value="guard"' + (d.role === 'guard' ? ' selected' : '') + '>' + esc(ROLES.guard.name) + '</option>' +
+        '<option value="duty"' + (d.role === 'duty' ? ' selected' : '') + '>' + esc(ROLES.duty.name) + '</option>' +
       '</select>') +
     '</div>';
   body += f('일정 내용', '<input type="text" id="ev-title" placeholder="예) 대대 전투력 측정, 면회 통제" value="' +
@@ -1541,10 +1796,10 @@ function openDayModal(date){
     (editing ? '<button class="btn" data-act="ev-cancel" data-date="' + date + '">수정 취소</button>' : '') +
     '<button class="btn" data-act="close-modal">닫기</button>' +
     '<button class="btn primary" data-act="ev-save" data-date="' + date + '">' +
-      (editing ? '수정 완료' : '추가') + '</button>';
+      (editing ? '수정 완료' : '일정 추가') + '</button>';
 
   openModal(fmtDateFull(date), body, foot, () => {
-    const t = $('#ev-title'); if(t) t.focus();
+    const t = $('#todo-input'); if(t) t.focus();
   });
 }
 
@@ -1564,7 +1819,7 @@ function table(head, rows){
 function viewGuide(){
   let h = '<div class="page">';
   h += '<div class="page-title">사용 설명서</div>';
-  h += '<div class="page-desc">위병조장 · 당직병 근무 인수인계 프로그램</div>';
+  h += '<div class="page-desc">' + esc(ROLES.guard.name) + ' · ' + esc(ROLES.duty.name) + ' 근무 인수인계 프로그램</div>';
 
   h += '<div class="callout info">' +
     '지시사항은 한 번 등록해 두면 <b>완료 처리할 때까지 다음 근무자에게 자동으로 넘어갑니다.</b> ' +
@@ -1599,7 +1854,8 @@ function viewGuide(){
       '여기 등록한 항목이 새 인계서마다 자동으로 들어갑니다.</li>' +
     '<li><b>근무 구분</b>(근무 시간대)도 설정에서 한 줄에 하나씩 등록합니다. ' +
       '등록하면 인계서에서 목록으로 고를 수 있고, 비워 두면 인계서에서 직접 입력합니다.</li>' +
-    '<li>위병조장과 당직병은 <b>서로 다른 목록</b>을 씁니다. 좌측 상단 이름을 눌러 전환한 뒤 각각 설정하십시오.</li>' +
+    '<li>' + esc(ROLES.guard.name) + '과 ' + esc(ROLES.duty.name) + '은 <b>서로 다른 목록</b>을 씁니다. 좌측 상단 이름을 눌러 전환한 뒤 각각 설정하십시오. ' +
+      '직책 이름 자체는 <b>설정 &gt; 직책 이름</b>에서 원하는 대로 바꿀 수 있습니다.</li>' +
   '</ul>';
 
   h += '<h2 class="sec">2. 근무 중 — 지시를 받았을 때</h2>';
@@ -1608,11 +1864,11 @@ function viewGuide(){
     '전화를 끊자마자, 간부가 돌아서자마자 등록하십시오.</div>';
   h += '<ul class="plain">' +
     '<li>우측 상단 <b>「지시사항 등록」</b>을 누릅니다.</li>' +
-    '<li><b>지시 내용</b>은 한 줄로 요약합니다. 예) 정문 CCTV 2번 카메라 화면 끊김, 통신반 보고</li>' +
+    '<li><b>지시 내용</b>은 다음 근무자가 한눈에 알아볼 수 있게 한 줄로 요약합니다.</li>' +
     '<li><b>상세 내용</b>에는 배경과 조치 방법을 적습니다. 다음 근무자가 이것만 보고 움직일 수 있어야 합니다.</li>' +
     '<li><b>지시한 사람</b>을 반드시 적습니다. 나중에 되물어야 할 때 누구에게 갈지가 분명해집니다.</li>' +
     '<li><b>중요도</b>는 긴급 / 중요 / 일반 중에 고릅니다. 긴급과 중요는 목록 위로 올라옵니다.</li>' +
-    '<li>위병조장과 당직병이 함께 알아야 할 내용이면 <b>대상 직책</b>을 「공통」으로 둡니다.</li>' +
+    '<li>' + esc(ROLES.guard.name) + '과 ' + esc(ROLES.duty.name) + '이 함께 알아야 할 내용이면 <b>대상 직책</b>을 「공통」으로 둡니다.</li>' +
   '</ul>';
 
   h += '<h2 class="sec">3. 교대 30분 전 — 인계서 작성</h2>';
@@ -1636,7 +1892,7 @@ function viewGuide(){
       '<br>· <b>계속 인계</b> — 아직 안 끝난 것. 다음 근무자에게 넘어갑니다.' +
       '<br>· <b>보류</b> — 지금은 할 수 없는 것. 사유를 옆 칸에 적습니다.</li>' +
     '<li>옆 칸에 <b>진행 상황</b>을 한 줄 적어 두면 다음 근무자가 어디까지 됐는지 압니다. ' +
-      '예) 통신반 유선 보고 완료, 주간에 방문 예정</li>' +
+      '어디까지 했고 다음에 무엇을 해야 하는지를 적으십시오.</li>' +
     '<li>인계자·인수자 이름을 넣고 <b>「인수인계 완료 처리」</b>를 누릅니다. ' +
       '미확인 점검 항목과 이월되는 지시 건수를 알려 주므로, 한 번 더 확인하고 확정하십시오.</li>' +
     '<li>서면 보관이 필요하면 <b>「인쇄」</b>로 출력해 서명하면 됩니다.</li>' +
@@ -1729,18 +1985,18 @@ function viewGuide(){
 function orderModal(existing){
   const o = existing || {};
   const body =
-    f('지시 내용 (한 줄 요약) *', '<input type="text" id="m-title" placeholder="예) 정문 CCTV 2번 카메라 화면 끊김 — 통신반 보고" value="' + esc(o.title || '') + '">') +
+    f('지시 내용 (한 줄 요약) *', '<input type="text" id="m-title" placeholder="받은 지시를 한 줄로 요약하십시오" value="' + esc(o.title || '') + '">') +
     f('상세 내용', '<textarea id="m-body" placeholder="지시 배경, 조치 방법, 확인해야 할 것 등">' + esc(o.body || '') + '</textarea>') +
     '<div class="grid g2">' +
-      f('지시한 사람', '<input type="text" id="m-from" placeholder="예) 당직사령 김○○ 대위" value="' + esc(o.from || '') + '">') +
+      f('지시한 사람', '<input type="text" id="m-from" placeholder="직책 / 계급 / 성명" value="' + esc(o.from || '') + '">') +
       f('기한', '<input type="date" id="m-due" value="' + esc(o.due || '') + '">') +
     '</div>' +
     '<div class="grid g2">' +
       f('중요도', '<select id="m-pri">' + Object.keys(PRIORITY).map(k =>
         '<option value="' + k + '"' + ((o.priority || 'normal') === k ? ' selected' : '') + '>' + PRIORITY[k].label + '</option>').join('') + '</select>') +
       f('대상 직책', '<select id="m-role">' +
-        '<option value="guard"' + ((o.role || db.activeRole) === 'guard' ? ' selected' : '') + '>위병조장</option>' +
-        '<option value="duty"' + ((o.role || db.activeRole) === 'duty' ? ' selected' : '') + '>당직병</option>' +
+        '<option value="guard"' + ((o.role || db.activeRole) === 'guard' ? ' selected' : '') + '>' + esc(ROLES.guard.name) + '</option>' +
+        '<option value="duty"' + ((o.role || db.activeRole) === 'duty' ? ' selected' : '') + '>' + esc(ROLES.duty.name) + '</option>' +
         '<option value="both"' + (o.role === 'both' ? ' selected' : '') + '>공통 (둘 다)</option>' +
       '</select>') +
     '</div>';
@@ -1803,6 +2059,7 @@ function importData(){
         if(!parsed || !Array.isArray(parsed.sheets) || !Array.isArray(parsed.orders)) throw new Error('형식 오류');
         if(!confirm('현재 데이터를 백업 파일 내용으로 덮어씁니다. 계속할까요?')) return;
         db = normalize(Object.assign(freshDB(), parsed));
+        applyRoleNames();
         saveDB();
         go('home');
         toast('백업을 불러왔습니다.');
@@ -1902,6 +2159,26 @@ document.addEventListener('click', e => {
       state.evDraft = { color:'blue', role:'both', editId:null };
       saveDB();
       openDayModal(date);
+      render();
+    },
+
+    'todo-add': () => {
+      const input = $('#todo-input');
+      const text = input ? input.value.trim() : '';
+      if(!text){ if(input) input.focus(); toast('할 일을 입력하십시오.'); return; }
+      db.todos.push({ id:uid(), date:el.dataset.date, text:text, done:false, createdAt:new Date().toISOString() });
+      saveDB();
+      openDayModal(el.dataset.date);
+      render();
+    },
+    'todo-toggle': () => {
+      const t = getTodo(id);
+      if(t){ t.done = !t.done; saveDB(); openDayModal(el.dataset.date); render(); }
+    },
+    'todo-del': () => {
+      db.todos = db.todos.filter(t => t.id !== id);
+      saveDB();
+      openDayModal(el.dataset.date);
       render();
     },
 
@@ -2020,6 +2297,7 @@ document.addEventListener('click', e => {
       if(!confirm('저장된 모든 인계서와 지시사항을 삭제합니다. 계속할까요?')) return;
       if(!confirm('되돌릴 수 없습니다. 먼저 백업 파일을 받아 두는 것을 권장합니다. 계속하시겠습니까?')) return;
       db = freshDB();
+      applyRoleNames();
       saveDB();
       go('home');
       toast('모든 데이터를 삭제했습니다.');
@@ -2083,6 +2361,13 @@ document.addEventListener('input', e => {
   }else if(kind === 'tpl'){
     db.templates[db.activeRole][parseInt(parts[1],10)] = el.value;
     saveSoon();
+  }else if(kind === 'rolename'){
+    db.roleNames[parts[1]] = el.value;
+    applyRoleNames();
+    const ws = $('.ws-title'); const badge = $('.ws-badge');   /* 사이드바 이름을 즉시 반영 */
+    if(ws) ws.textContent = role().name;
+    if(badge) badge.textContent = role().mark;
+    saveSoon();
   }
 });
 /* 조합 완료 시점의 최종 값을 확실히 반영합니다. */
@@ -2109,6 +2394,10 @@ document.addEventListener('keydown', e => {
   if(id === 'new-check')      $('[data-act="add-check"]').click();
   else if(id === 'new-tpl')   $('[data-act="add-tpl"]').click();
   else if(id === 'log-note')  $('[data-act="add-log"]').click();
+  else if(id === 'todo-input'){
+    const btn = $('[data-act="todo-add"]');
+    if(btn) btn.click();
+  }
   else if(id === 'ev-title' || id === 'ev-memo'){
     const btn = $('[data-act="ev-save"]');
     if(btn) btn.click();
@@ -2125,7 +2414,8 @@ function welcome(){
     '<p class="small muted" style="margin-bottom:16px">' +
       '인터넷 없이 이 컴퓨터에서만 동작합니다. 처음 한 번만 설정하면 됩니다.</p>' +
     f('부대 / 소속 표기', '<input type="text" id="w-unit" placeholder="예) ○○연대 1대대">') +
-    f('먼저 사용할 직책', '<select id="w-role"><option value="guard">위병조장</option><option value="duty">당직병</option></select>') +
+    f('먼저 사용할 직책', '<select id="w-role"><option value="guard">' + esc(ROLES.guard.name) + '</option><option value="duty">' + esc(ROLES.duty.name) + '</option></select>') +
+    '<div class="tiny faint" style="margin-top:-8px">직책 이름은 나중에 설정에서 바꿀 수 있습니다.</div>' +
     '<div class="callout info small" style="margin-top:6px">' +
       '간부에게 지시를 받으면 그 자리에서 지시사항으로 등록하십시오. ' +
       '완료 처리 전까지 모든 인계서에 자동으로 포함되므로 누락되지 않습니다.' +
@@ -2149,6 +2439,7 @@ function welcome(){
 /* ---------- 시작 ---------- */
 (function init(){
   db = loadDB();
+  applyRoleNames();
   let theme = 'light';
   try{ theme = localStorage.getItem(THEME_KEY) || 'light'; }catch(e){}
   applyTheme(theme);
@@ -2174,6 +2465,7 @@ function welcome(){
     if(el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
     try{
       db = normalize(JSON.parse(e.newValue));
+      applyRoleNames();
       render();
     }catch(err){ /* 형식이 깨진 경우 현재 상태를 유지합니다 */ }
   });
