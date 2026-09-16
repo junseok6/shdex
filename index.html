@@ -666,16 +666,16 @@ function freshDB(){
     roles: [
       { key:'officer', name:'간부',       mark:'간' },
       { key:'civil',   name:'군무원',     mark:'군' },
-      { key:'squad',   name:'당직분대장', mark:'분' },
+      { key:'nco',     name:'당직부사관', mark:'당' },
       { key:'guard',   name:'위병조장',   mark:'위' },
     ],
-    templates: { officer: [], civil: [], squad: [], guard: [] },
+    templates: { officer: [], civil: [], nco: [], guard: [] },
     shifts: [],
     orders: [],
     sheets: [],
     events: [],
     todos: [],
-    lastNames: { officer:'', civil:'', squad:'', guard:'' },
+    lastNames: { officer:'', civil:'', nco:'', guard:'' },
     notify: false,                        /* 브라우저 알림 사용 여부 */
     notifyLeadMin: 5,                     /* 몇 분 전에 알릴지 */
     createdAt: new Date().toISOString(),
@@ -717,16 +717,32 @@ function normalize(d){
     const dName = ((d.roleNames && d.roleNames.duty) || '').trim() || '당직병';
     d.roles = [ { key:'guard', name:gName }, { key:'duty', name:dName } ];
   }
-  /* v3.1 마이그레이션: guard/duty만 있으면 기본 4개 직책으로 확장 */
+  /* v3.1 마이그레이션: squad→nco 키 변환, 기본 4개 직책으로 확장, 당직병 제거 */
+  d.roles.forEach(function(r){
+    if(r.key === 'squad'){ r.key = 'nco'; r.name = '당직부사관'; r.mark = '당'; }
+  });
+  if(d.templates && d.templates.squad){ d.templates.nco = d.templates.squad; delete d.templates.squad; }
+  if(d.lastNames && d.lastNames.squad){ d.lastNames.nco = d.lastNames.squad; delete d.lastNames.squad; }
+  if(d.activeRole === 'squad') d.activeRole = 'nco';
   var defaults = [
     { key:'officer', name:'간부',       mark:'간' },
     { key:'civil',   name:'군무원',     mark:'군' },
-    { key:'squad',   name:'당직분대장', mark:'분' },
+    { key:'nco',     name:'당직부사관', mark:'당' },
   ];
   defaults.forEach(function(df){
     if(!d.roles.some(function(r){ return r.key === df.key; })){
       d.roles.unshift(df);
     }
+  });
+  d.roles = d.roles.filter(function(r){ return r.key !== 'duty'; });
+  if(d.activeRole === 'duty') d.activeRole = d.roles[0].key;
+  /* 기본 직책 순서 보장: 간부→군무원→당직부사관→위병조장→(사용자 추가분) */
+  var ORDER = ['officer','civil','nco','guard'];
+  d.roles.sort(function(a,b){
+    var ai = ORDER.indexOf(a.key), bi = ORDER.indexOf(b.key);
+    if(ai === -1) ai = ORDER.length;
+    if(bi === -1) bi = ORDER.length;
+    return ai - bi;
   });
   d.roles = d.roles.filter(r => r && typeof r.key === 'string' && r.key);
   if(!d.roles.length) d.roles = [ { key:'guard', name:'위병조장' } ];
