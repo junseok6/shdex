@@ -129,6 +129,15 @@ a{color:var(--accent);text-decoration:none}
   justify-content:center;color:var(--text-dim);font-size:15px;flex:0 0 28px;
 }
 .icon-btn:hover{background:var(--bg-hover)}
+.next-ev{
+  display:flex;align-items:center;gap:6px;padding:4px 10px;margin-left:10px;border-radius:var(--radius);
+  border:1px solid var(--border);background:var(--bg-card);font-size:12.5px;color:var(--text-dim);
+  max-width:340px;flex:0 1 auto;min-width:0;
+}
+.next-ev:hover{background:var(--bg-hover)}
+.next-ev .next-ev-label{color:var(--text-faint);flex:0 0 auto}
+.next-ev b{color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.next-ev .faint{flex:0 0 auto}
 .spacer{flex:1}
 .content{flex:1;overflow-y:auto}
 .page{max-width:860px;margin:0 auto;padding:40px 56px 120px}
@@ -341,6 +350,7 @@ select{cursor:pointer}
   width:22px;height:22px;border-radius:50%;border:2px solid transparent;
 }
 .sw button.on{border-color:var(--text)}
+.sw button.muted{opacity:.25}
 .sw button[data-val=gray]{background:var(--gray)}
 .sw button[data-val=blue]{background:var(--blue)}
 .sw button[data-val=green]{background:var(--green)}
@@ -430,6 +440,7 @@ ul.plain li b{font-weight:600}
   .grid.g4{grid-template-columns:repeat(2,1fr)}
   .grid.g3{grid-template-columns:1fr}
   .grid.g2{grid-template-columns:1fr}
+  .next-ev{display:none}
 }
 
 /* 인쇄 */
@@ -664,6 +675,7 @@ function freshDB(){
     todos: [],
     lastNames: { officer:'', civil:'', squad:'', guard:'' },
     notify: false,                        /* 브라우저 알림 사용 여부 */
+    notifyLeadMin: 5,                     /* 몇 분 전에 알릴지 */
     createdAt: new Date().toISOString(),
   };
 }
@@ -722,6 +734,7 @@ function normalize(d){
     if(typeof d.lastNames[r.key] !== 'string') d.lastNames[r.key] = '';
   });
   if(typeof d.notify !== 'boolean') d.notify = false;
+  if(typeof d.notifyLeadMin !== 'number' || !d.notifyLeadMin) d.notifyLeadMin = 5;
   d.orders.forEach(o => {
     o.relayCount = o.relayCount || 0;
     o.priority = PRIORITY[o.priority] ? o.priority : 'normal';
@@ -832,6 +845,7 @@ const state = {
   calMode: 'month',                  // month | week | day
   calDate: todayISO(),               /* 달력(주간/일간)에서 보고 있는 날짜 */
   calRoleFilter: 'all',              /* 달력에서 특정 직책 일정만 볼 때 */
+  calColorFilter: [],                /* 달력에서 숨긴 색상 목록 */
   evDraft: { color:'blue', role:'both', editId:null, scope:'series' },
 };
 
@@ -921,6 +935,22 @@ function eventsBetween(from, to){
 function getEvent(id){ return db.events.find(e => e.id === id); }
 function todosOn(date){ return db.todos.filter(t => t.date === date); }
 function getTodo(id){ return db.todos.find(t => t.id === id); }
+
+/* 지금 직책과 관련된 것(공통 + 이 직책) 중, 지금부터 가장 가까운 일정 하나를 찾습니다. 상단바 '다음 일정' 위젯에 씁니다. */
+function nextUpcomingEvent(){
+  const relevant = e => e.role === 'both' || e.role === db.activeRole;
+  const today = todayISO();
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const todays = eventsOn(today).filter(relevant);
+  const upcomingToday = todays.find(e => {
+    if(!e.time) return true;   /* 종일 일정은 하루 내내 '진행 중'으로 봅니다 */
+    const p = e.time.split(':').map(Number);
+    return p[0] * 60 + p[1] >= nowMin;
+  });
+  if(upcomingToday) return upcomingToday;
+  const future = eventsBetween(addDays(today, 1), addDays(today, 21)).filter(relevant);
+  return future[0] || null;
+}
 
 /* ---------- 동작 ---------- */
 function newSheet(roleKey){
@@ -1031,20 +1061,21 @@ function toggleTheme(){
 }
 
 /* ---------- 알림 ---------- */
-/* 이 탭이 열려 있는 동안, 시간이 정해진 오늘 일정이 5분 이내로 다가오면 한 번씩 알립니다.
+/* 이 탭이 열려 있는 동안, 시간이 정해진 오늘 일정이 설정한 시간(기본 5분) 이내로 다가오면 한 번씩 알립니다.
    탭을 닫으면 동작하지 않는 한계가 있어, 설정 화면에도 이 사실을 안내해 둡니다. */
 const _notified = new Set();
 function checkNotifications(){
   if(!db.notify || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const lead = db.notifyLeadMin || 5;
   eventsOn(todayISO()).forEach(e => {
     if(!e.time) return;
     const key = e.id + '@' + e.date + '@' + e.time;
     if(_notified.has(key)) return;
     const parts = e.time.split(':').map(Number);
     const evMinutes = parts[0] * 60 + parts[1];
-    if(evMinutes - nowMinutes <= 5 && evMinutes - nowMinutes >= -1){
+    if(evMinutes - nowMinutes <= lead && evMinutes - nowMinutes >= -1){
       _notified.add(key);
       try{
         new Notification(role().name + ' 일정 알림', {
@@ -1143,6 +1174,22 @@ function renderSidebar(){
     '</div>';
 }
 
+/* 상단바에 항상 떠 있는 '다음 일정' 위젯. 눌러 그 날짜로 바로 이동합니다. */
+function nextUpcomingHTML(){
+  const e = nextUpcomingEvent();
+  if(!e) return '';
+  const today = todayISO();
+  let when;
+  if(e.date === today) when = e.time ? '오늘 ' + e.time : '오늘 종일';
+  else if(e.date === addDays(today, 1)) when = e.time ? '내일 ' + e.time : '내일 종일';
+  else when = fmtDate(e.date) + (e.time ? ' ' + e.time : '');
+  return '<button class="next-ev no-print" data-act="go-event" data-date="' + e.date + '" title="다음 일정으로 이동">' +
+    '<span class="ev-dot ' + e.color + '"></span>' +
+    '<span class="next-ev-label">다음 일정</span>' +
+    '<b>' + esc(e.title) + '</b>' +
+    '<span class="faint">' + esc(when) + '</span>' +
+  '</button>';
+}
 function renderTopbar(){
   const r = role();
   let crumb = '';
@@ -1165,6 +1212,7 @@ function renderTopbar(){
       'stroke-width="1.5" stroke-linecap="round"><path d="M2 4h11M2 7.5h11M2 11h11"/></svg>' +
     '</button>' +
     '<div class="crumb">' + crumb + '</div>' +
+    nextUpcomingHTML() +
     '<div class="spacer"></div>' +
     '<button class="btn sm" data-act="new-order">지시사항 등록</button>' +
     (state.view === 'sheet' || state.view === 'guide' || state.view === 'calendar'
@@ -1678,6 +1726,11 @@ function viewSettings(){
   h += '<div class="btn-row">' +
     '<button class="btn' + (db.notify ? ' primary' : '') + '" data-act="toggle-notify">' +
       (db.notify ? '알림 사용 중 (끄려면 클릭)' : '브라우저 알림 켜기') + '</button>' +
+    (db.notify ? '<span class="small muted">몇 분 전에 알릴지</span>' +
+      '<select data-in="db:notifyLeadMin" style="width:auto">' +
+        [5,10,15,30,60].map(function(m){
+          return '<option value="' + m + '"' + (db.notifyLeadMin === m ? ' selected' : '') + '>' + m + '분 전</option>';
+        }).join('') + '</select>' : '') +
   '</div>';
   if(db.notify && typeof Notification !== 'undefined' && Notification.permission === 'denied'){
     h += '<div class="callout warn small" style="margin-top:8px">' +
@@ -1709,10 +1762,12 @@ function viewSettings(){
 }
 
 /* ---------- 달력 ---------- */
-/* 달력에서 '전체 일정' 대신 특정 직책 일정만 보고 싶을 때 씁니다. 하루/인계서 화면 등에는 영향이 없습니다. */
+/* 달력에서 '전체 일정' 대신 특정 직책·색상만 보고 싶을 때 씁니다. 하루/인계서 화면 등에는 영향이 없습니다. */
 function calFilter(list){
-  if(state.calRoleFilter === 'all') return list;
-  return list.filter(e => e.role === 'both' || e.role === state.calRoleFilter);
+  return list.filter(e =>
+    (state.calRoleFilter === 'all' || e.role === 'both' || e.role === state.calRoleFilter) &&
+    state.calColorFilter.indexOf(e.color) === -1
+  );
 }
 function weekStartOf(iso){
   return addDays(iso, -(new Date(iso + 'T00:00:00').getDay()));
@@ -1723,6 +1778,13 @@ function calRoleFilterHTML(){
     db.roles.map(r => '<option value="' + r.key + '"' + (state.calRoleFilter === r.key ? ' selected' : '') +
       '>' + esc(r.name) + ' 일정</option>').join('') +
   '</select>';
+}
+/* 색상(카테고리)별로 켜고 끄는 작은 점 목록. 꺼진 색은 옅게 표시됩니다. */
+function calColorFilterHTML(){
+  return '<div class="sw" title="색상으로 걸러보기" style="margin:0 2px">' + EV_COLORS.map(c =>
+    '<button data-act="cal-color-toggle" data-val="' + c + '" class="' +
+      (state.calColorFilter.indexOf(c) === -1 ? 'on' : 'muted') + '"></button>').join('') +
+  '</div>';
 }
 function viewCalendar(){
   let navTitle = '', addDate = todayISO();
@@ -1752,6 +1814,7 @@ function viewCalendar(){
     '<button class="btn sm" data-act="cal-move" data-val="1">다음</button>' +
     '<button class="btn sm ghost" data-act="cal-today">오늘</button>' +
     '<div class="spacer"></div>' +
+    calColorFilterHTML() +
     (db.roles.length > 1 ? calRoleFilterHTML() : '') +
     '<button class="btn sm primary" data-act="cal-day" data-date="' + addDate + '">일정 추가</button>' +
   '</div>';
@@ -2149,9 +2212,11 @@ function viewGuide(){
       '지우려면 <b>월간 달력 칸의 작은 일정 박스를 바로 클릭</b>해도 됩니다 (확인 후 즉시 삭제).</li>' +
     '<li>정기 회의·매주 훈련처럼 되풀이되는 일정은 <b>반복</b>을 매일/매주/매월로 지정합니다. ' +
       '반복 일정을 고칠 때는 <b>이 날짜만</b>(그날만 따로 수정) / <b>전체 반복 일정</b>(앞으로 전부 수정) 중에 고릅니다.</li>' +
-    '<li>상단 <b>월간/주간/일간</b> 버튼으로 보기 방식을 바꿀 수 있습니다. 직책이 여러 개면 ' +
-      '<b>직책 선택</b>으로 특정 직책의 일정만 걸러 볼 수 있습니다.</li>' +
-    '<li><b>설정 &gt; 알림</b>을 켜면, 이 탭을 열어 둔 동안 시간이 정해진 오늘 일정이 다가올 때 브라우저 알림이 뜹니다.</li>' +
+    '<li>상단 <b>월간/주간/일간</b> 버튼으로 보기 방식을 바꿀 수 있습니다. ' +
+      '<b>색상 점</b>을 눌러 특정 색상만 숨기거나, 직책이 여러 개면 <b>직책 선택</b>으로 특정 직책의 일정만 걸러 볼 수 있습니다.</li>' +
+    '<li>상단바에는 <b>다음 일정</b>이 항상 떠 있습니다. 눌러 그 날짜로 바로 이동할 수 있습니다.</li>' +
+    '<li>같은 날 같은 시각에 일정을 두 개 등록하면, 겹친다고 알려 드립니다.</li>' +
+    '<li><b>설정 &gt; 알림</b>을 켜면, 이 탭을 열어 둔 동안 시간이 정해진 오늘 일정이 몇 분 전(설정 가능)에 다가올 때 브라우저 알림이 뜹니다.</li>' +
     '<li>상단 <b>인쇄</b>로 그 달 달력과 일정 목록을 출력할 수 있습니다.</li>' +
   '</ul>';
 
@@ -2374,6 +2439,11 @@ document.addEventListener('click', e => {
       toast('직책을 삭제했습니다.');
     },
 
+    'go-event': () => {
+      state.calMode = 'day';
+      state.calDate = el.dataset.date;
+      go('calendar');
+    },
     'cal-move': () => {
       const step = parseInt(val,10);
       if(state.calMode === 'week') state.calDate = addDays(state.calDate, step*7);
@@ -2383,6 +2453,11 @@ document.addEventListener('click', e => {
     },
     'cal-today': () => { state.calMonth = todayISO().slice(0,7); state.calDate = todayISO(); render(); },
     'cal-mode': () => { state.calMode = val; render(); },
+    'cal-color-toggle': () => {
+      const i = state.calColorFilter.indexOf(val);
+      if(i === -1) state.calColorFilter.push(val); else state.calColorFilter.splice(i,1);
+      render();
+    },
     'cal-day': () => {
       state.evDraft = { color:'blue', role:'both', editId:null, scope:'series' };
       openDayModal(el.dataset.date);
@@ -2456,6 +2531,9 @@ document.addEventListener('click', e => {
         repeatUntil: $('#ev-repeat-until').value,
       };
       const editId = state.evDraft.editId;
+      /* 겹치는 일정 사고 방지 — 같은 날 같은 시각에 이미 다른 일정이 있으면 저장은 하되 알려줍니다. */
+      const clash = data.time ? eventsOn(date).find(x => x.time === data.time && x.id !== editId) : null;
+      let msg;
       if(editId){
         const base = getEvent(editId);
         if(base && base.repeat && base.repeat !== 'none' && state.evDraft.scope === 'this'){
@@ -2465,20 +2543,22 @@ document.addEventListener('click', e => {
           db.events.push(Object.assign(
             { id:uid(), date:date, exceptions:[], createdAt:new Date().toISOString() },
             data, { repeat:'none', repeatUntil:'' }));
-          toast('이 날짜의 일정만 수정했습니다.');
+          msg = '이 날짜의 일정만 수정했습니다.';
         }else if(base){
           Object.assign(base, data);
           if(!Array.isArray(base.exceptions)) base.exceptions = [];
-          toast('일정을 수정했습니다.');
+          msg = '일정을 수정했습니다.';
         }
       }else{
         db.events.push(Object.assign({ id:uid(), date:date, exceptions:[], createdAt:new Date().toISOString() }, data));
-        toast('일정을 추가했습니다.');
+        msg = '일정을 추가했습니다.';
       }
+      if(clash) msg += ' (참고: ' + data.time + '에 \'' + clash.title + '\'와 시간이 겹칩니다)';
       state.evDraft = { color:'blue', role:'both', editId:null, scope:'series' };
       saveDB();
       openDayModal(date);
       render();
+      toast(msg);
     },
 
     'todo-add': () => {
@@ -2688,6 +2768,8 @@ document.addEventListener('input', e => {
   }else if(kind === 'db'){
     if(parts[1] === 'shifts'){
       db.shifts = el.value.split('\n').map(x => x.trim()).filter(Boolean);
+    }else if(parts[1] === 'notifyLeadMin'){
+      db.notifyLeadMin = parseInt(el.value,10) || 5;
     }else{
       db[parts[1]] = el.value;
     }
