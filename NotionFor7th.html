@@ -1831,7 +1831,6 @@ function viewSettings(){
   '</div>';
   h += '<div class="small muted" style="margin:14px 0 6px">그 외 형식으로 내보내기</div>';
   h += '<div class="btn-row">' +
-    '<button class="btn sm" data-act="export-ics">일정 내보내기 (.ics — 휴대폰 캘린더용)</button>' +
     '<button class="btn sm" data-act="export-csv">인계 기록 내보내기 (.csv — 엑셀용)</button>' +
   '</div>';
   h += '<div class="tiny faint" style="margin-top:10px">인계서 ' + db.sheets.length + '건 · 지시사항 ' +
@@ -2348,8 +2347,7 @@ function viewGuide(){
     '<li>같은 날 같은 시각에 일정을 두 개 등록하면, 겹친다고 알려 드립니다.</li>' +
     '<li><b>설정 &gt; 알림</b>을 켜면, 이 탭을 열어 둔 동안 시간이 정해진 오늘 일정이 몇 분 전(설정 가능)에 다가올 때 브라우저 알림이 뜹니다.</li>' +
     '<li>상단 <b>일정 검색</b>창에 제목을 입력하면 앞뒤 1년 안에서 찾아 목록으로 보여줍니다. 누르면 그 날짜로 이동합니다.</li>' +
-    '<li><b>설정 &gt; 데이터</b>에서 일정을 <b>.ics 파일</b>로 내보내면 휴대폰 캘린더(구글·애플 등)에 넣어 볼 수 있고, ' +
-      '인계 기록을 <b>.csv 파일</b>로 내보내면 엑셀에서 바로 열립니다.</li>' +
+    '<li><b>설정 &gt; 데이터</b>에서 인계 기록을 <b>.csv 파일</b>로 내보내면 엑셀에서 바로 열립니다.</li>' +
     '<li>목록·주간·일간 보기에서 일정 앞 체크박스를 누르면 완료로 표시(줄긋기)됩니다.</li>' +
     '<li>키보드 단축키: <b>N</b> 지시사항 등록, <b>/</b> 검색창으로 이동, <b>T</b> 오늘로 이동. ' +
       '입력창에 커서가 있거나 창이 열려 있을 때는 동작하지 않습니다.</li>' +
@@ -2515,39 +2513,6 @@ function downloadFile(filename, content, mime){
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
-/* ---------- 일정 내보내기 (.ics) — 휴대폰·구글/애플 캘린더에서 열 수 있는 표준 형식 ---------- */
-function icsEscape(s){
-  return String(s == null ? '' : s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
-}
-function exportICS(){
-  if(!db.events.length){ toast('내보낼 일정이 없습니다.'); return; }
-  const FREQ = { daily:'DAILY', weekly:'WEEKLY', monthly:'MONTHLY' };
-  const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//shdex//' + icsEscape(db.unit || '인수인계') + '//KO','CALSCALE:GREGORIAN'];
-  db.events.forEach(e => {
-    const d8 = e.date.replace(/-/g,'');
-    const t6 = e.time ? e.time.replace(':','') + '00' : '';
-    lines.push('BEGIN:VEVENT');
-    lines.push('UID:' + e.id + '@shdex');
-    lines.push('DTSTAMP:' + new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z');
-    lines.push(e.time ? ('DTSTART:' + d8 + 'T' + t6) : ('DTSTART;VALUE=DATE:' + d8));
-    if(e.repeat && e.repeat !== 'none' && FREQ[e.repeat]){
-      let rrule = 'FREQ=' + FREQ[e.repeat];
-      if(e.repeatUntil) rrule += ';UNTIL=' + e.repeatUntil.replace(/-/g,'') + (e.time ? 'T235959' : '');
-      lines.push('RRULE:' + rrule);
-      if(e.exceptions && e.exceptions.length){
-        const exVals = e.exceptions.map(function(d){ return d.replace(/-/g,'') + (e.time ? 'T' + t6 : ''); });
-        lines.push('EXDATE' + (e.time ? '' : ';VALUE=DATE') + ':' + exVals.join(','));
-      }
-    }
-    lines.push('SUMMARY:' + icsEscape(e.title));
-    if(e.memo) lines.push('DESCRIPTION:' + icsEscape(e.memo));
-    lines.push('END:VEVENT');
-  });
-  lines.push('END:VCALENDAR');
-  downloadFile((db.unit || '일정') + '_' + todayISO() + '.ics', lines.join('\r\n'), 'text/calendar;charset=utf-8');
-  toast('일정을 .ics 파일로 내보냈습니다.');
-}
-
 /* ---------- 인계 기록 내보내기 (.csv) — 엑셀에서 바로 열립니다 ---------- */
 function csvEscape(s){
   const str = String(s == null ? '' : s);
@@ -2596,7 +2561,6 @@ document.addEventListener('click', e => {
     'close-modal': closeModal,
     'export': exportData,
     'import': importData,
-    'export-ics': exportICS,
     'export-csv': exportCSV,
 
     'switch-role': () => {
